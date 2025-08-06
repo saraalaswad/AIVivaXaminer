@@ -111,7 +111,7 @@ def main():
     st.set_page_config(
         page_title="AIVivaXaminer", page_icon=":computer:")
 
-    st.title("AIVivaXaminer :computer:")
+    st.title(":computer: AIVivaXaminer")
     
     # Initialize chat history
     if "messages" not in st.session_state:
@@ -149,3 +149,4 @@ def main():
 if __name__ == '__main__':
 
     main()
+
