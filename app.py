@@ -123,7 +123,7 @@ def main():
             st.markdown(message["content"])
 
     # Accept user input
-    if prompt := st.chat_input("What is your name and research title?"):
+    if prompt := st.chat_input("What is your research title?"):
         # Display user message in chat message container
         with st.chat_message("user"):
             st.markdown(prompt)
@@ -149,4 +149,5 @@ def main():
 if __name__ == '__main__':
 
     main()
+
 
