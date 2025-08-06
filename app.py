@@ -109,9 +109,9 @@ def generate_response(message):
 # 5. Build an app with streamlit
 def main():
     st.set_page_config(
-        page_title="AIVivaXaminer", page_icon=":teacher:")
+        page_title="AIVivaXaminer", page_icon=":computer:")
 
-    st.title("AIVivaXaminer :teacher:")
+    st.title("AIVivaXaminer :computer:")
     
     # Initialize chat history
     if "messages" not in st.session_state:
@@ -147,4 +147,5 @@ def main():
 
 
 if __name__ == '__main__':
+
     main()
