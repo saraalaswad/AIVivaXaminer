@@ -30,7 +30,7 @@ def retrieve_info(query):
     return page_contents_array
 
 # 3. Setup LLMChain & prompts
-llm = ChatOpenAI(temperature=0.7, model="gpt-5")
+llm = ChatOpenAI(temperature=0.7, model="gpt-5-mini")
 
 template = """
 You are an experienced academic professor conducting a viva assessment for an undergraduate student. Your task is to evaluate the student’s understanding of their research project by asking a series of questions one by one. After each question, allow the student to respond fully, and then engage in a discussion about their answer.
@@ -149,6 +149,7 @@ def main():
 if __name__ == '__main__':
 
     main()
+
 
 
 
