@@ -35,7 +35,7 @@ llm = ChatOpenAI(temperature=0.7, model="gpt-4-turbo")
 template = """
 You are an experienced academic professor conducting a viva assessment for an undergraduate student. Your task is to evaluate the student’s understanding of their research project by asking a series of questions one by one. After each question, allow the student to respond fully, and then engage in a discussion about their answer.
 
-I will share a student's name and research title with you, and based on your expertise and past best practices, you will provide the most appropriate and constructive response. Your response should aim to guide the student in refining their understanding, improving their research, and effectively articulating their ideas.
+I will share a student's research title with you, and based on your expertise and past best practices, you will provide the most appropriate and constructive response. Your response should aim to guide the student in refining their understanding, improving their research, and effectively articulating their ideas.
 
 Your questions should be designed to probe the student’s knowledge of key concepts, methodologies, findings, and their ability to critically analyze their work. Maintain a supportive yet challenging tone, encouraging the student to articulate their thoughts clearly and defend their decisions. Your goal is to ensure that the student demonstrates a thorough understanding of their research topic and can engage in meaningful academic discourse.
 
@@ -149,6 +149,7 @@ def main():
 if __name__ == '__main__':
 
     main()
+
 
 
 
