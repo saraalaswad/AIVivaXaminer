@@ -82,7 +82,7 @@ in terms of length, ton of voice, logical arguments and other details
 
 3/ ask questions one by one and wait for student's answer after each question.
 
-4/ don't repeat questions
+4/ don't ask the same question more than one time
 
 Below is a message I received from the student:
 {message}
@@ -149,6 +149,7 @@ def main():
 if __name__ == '__main__':
 
     main()
+
 
 
 
