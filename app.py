@@ -166,7 +166,7 @@ ________________________________________
 Inputs
 •	Student Message: {message}
 •	Best Practice Examples: {best_practice}
-•	Assessment Framework: {evaluation_framework}
+
 ________________________________________
 Output Requirements
 •	During the viva: Output only the next question.
@@ -234,6 +234,7 @@ def main():
 if __name__ == '__main__':
 
     main()
+
 
 
 
