@@ -117,10 +117,12 @@ OUTPUT RULES
 
 """
 
-prompt = PromptTemplate(
-    input_variables=["message", "best_practice"],
-    template=template
-)
+while not stopping_condition:
+    prompt = system_prompt.format(question_history="\n".join(asked_questions))
+    question = model.generate(prompt)
+    asked_questions.append(question)
+    student_response = get_student_response()
+    # Continue loop
 
 chain = LLMChain(llm=llm, prompt=prompt)
 
@@ -140,6 +142,9 @@ def main():
     # Initialize chat history
     if "messages" not in st.session_state:
         st.session_state.messages = []
+
+    # Initialize questions history
+    asked_questions = []
 
     # Display chat messages from history on app rerun
     for message in st.session_state.messages:
@@ -173,22 +178,3 @@ def main():
 if __name__ == '__main__':
 
     main()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
