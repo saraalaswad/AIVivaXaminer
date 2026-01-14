@@ -117,12 +117,10 @@ OUTPUT RULES
 
 """
 
-while not stopping_condition:
-    prompt = system_prompt.format(question_history="\n".join(asked_questions))
-    question = model.generate(prompt)
-    asked_questions.append(question)
-    student_response = get_student_response()
-    # Continue loop
+prompt = PromptTemplate(
+    input_variables=["message", "best_practice"],
+    template=template
+)
 
 chain = LLMChain(llm=llm, prompt=prompt)
 
