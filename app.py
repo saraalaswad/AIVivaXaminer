@@ -276,3 +276,8 @@ def main():
             st.session_state.messages.append({"role":"assistant","content":question})
         else:
             st.session_state.viva_completed=True
+
+if __name__ == "__main__":
+    main()
+
+
