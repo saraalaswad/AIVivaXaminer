@@ -270,4 +270,9 @@ def main():
             st.session_state.question_count +=1
             cat = category_chain.run(question=question).strip()
             if cat in st.session_state.category_counter:
-                st.session_state.category_counter[cat]+=
+                st.session_state.category_counter[cat]+=1
+            with st.chat_message("assistant"):
+                st.markdown(question)
+            st.session_state.messages.append({"role":"assistant","content":question})
+        else:
+            st.session_state.viva_completed=True
