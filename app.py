@@ -199,10 +199,20 @@ def main():
     if force_stop:
         st.session_state.viva_completed = True
 
-    # Display chat history
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+    # Display chat history: Student input first, then assistant response
+    for i in range(0, len(st.session_state.messages), 2):
+        # Student message
+        if i < len(st.session_state.messages):
+            user_msg = st.session_state.messages[i]
+            if user_msg["role"] == "user":
+                with st.chat_message("user"):
+                    st.markdown(user_msg["content"])
+        # Assistant message
+        if i + 1 < len(st.session_state.messages):
+            assistant_msg = st.session_state.messages[i+1]
+            if assistant_msg["role"] == "assistant":
+                with st.chat_message("assistant"):
+                    st.markdown(assistant_msg["content"])
 
     # Display analytics dashboard (examiner only)
     with st.sidebar:
@@ -311,3 +321,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
