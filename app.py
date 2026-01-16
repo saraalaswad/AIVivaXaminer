@@ -2,6 +2,8 @@ import streamlit as st
 import time
 import json
 import tempfile
+import pandas as pd
+import altair as alt
 from dotenv import load_dotenv
 from langchain.document_loaders.csv_loader import CSVLoader
 from langchain.vectorstores import FAISS
@@ -19,12 +21,7 @@ load_dotenv()
 # CONFIG
 # ─────────────────────────────────────────────
 DEFAULT_MAX_QUESTIONS = 10
-MIN_COVERAGE = {
-    "General": 2,
-    "Technical": 2,
-    "Critical": 1,
-    "Future": 1
-}
+MIN_COVERAGE = {"General": 2, "Technical": 2, "Critical": 1, "Future": 1}
 
 # ─────────────────────────────────────────────
 # VECTOR STORE
@@ -154,7 +151,7 @@ def generate_viva_pdf(questions, responses, averages, overall, recommendation):
     return tmp.name
 
 # ─────────────────────────────────────────────
-# FINAL SCORING (with ZeroDivisionError fix)
+# FINAL SCORING
 # ─────────────────────────────────────────────
 def compute_final_result(scores):
     averages = {}
@@ -189,10 +186,7 @@ def main():
 
     # Session state initialization
     defaults = {
-        "messages": [],
-        "question_history": [],
-        "student_responses": [],
-        "question_count": 0,
+        "messages": [], "question_history": [], "student_responses": [], "question_count": 0,
         "viva_completed": False,
         "category_counter": {"General":0,"Technical":0,"Critical":0,"Domain":0,"Future":0},
         "scores": {"Conceptual":[], "Methodological":[], "Technical":[], "Critical":[], "Communication":[]}
@@ -209,6 +203,36 @@ def main():
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
+
+    # Display analytics dashboard (examiner only)
+    with st.sidebar:
+        st.header("📊 Viva Analytics Dashboard")
+        total_q = st.session_state.question_count
+        st.write(f"Questions Asked: {total_q} / {max_q}")
+
+        # Category coverage
+        st.subheader("Category Coverage")
+        for cat, count in st.session_state.category_counter.items():
+            st.progress(min(count / MIN_COVERAGE.get(cat, max_q), 1.0))
+            st.write(f"{cat}: {count}")
+
+        # Average scores
+        st.subheader("Rubric Dimension Averages")
+        averages = {}
+        for dim, vals in st.session_state.scores.items():
+            avg = round(sum(vals) / len(vals), 2) if vals else 0
+            averages[dim] = avg
+            st.write(f"{dim}: {avg}")
+
+        # Viva status
+        st.subheader("Viva Status")
+        status = "Completed ✅" if st.session_state.viva_completed else "Ongoing 🟢"
+        st.write(status)
+
+        # Score chart
+        df_scores = pd.DataFrame([{"Dimension": k, "Average": v} for k, v in averages.items()])
+        chart = alt.Chart(df_scores).mark_bar().encode(x='Dimension', y='Average', color='Dimension')
+        st.altair_chart(chart, use_container_width=True)
 
     # If viva completed, generate PDF
     if st.session_state.viva_completed:
