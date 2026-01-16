@@ -187,7 +187,7 @@ def main():
     # Session state initialization
     defaults = {
         "messages": [], "question_history": [], "student_responses": [], "question_count": 0,
-        "viva_completed": False,
+        "viva_completed": False, "viva_started": False,
         "category_counter": {"General":0,"Technical":0,"Critical":0,"Domain":0,"Future":0},
         "scores": {"Conceptual":[], "Methodological":[], "Technical":[], "Critical":[], "Communication":[]}
     }
@@ -250,6 +250,16 @@ def main():
     # Student input
     if user_input := st.chat_input("Enter research title or answer"):
         st.session_state.messages.append({"role":"user","content":user_input})
+
+        # FIRST INPUT IS JUST TITLE
+        if not st.session_state.viva_started:
+            st.session_state.viva_started = True
+            with st.chat_message("assistant"):
+                st.markdown("✅ Research title noted. Viva will start now.")
+            st.session_state.messages.append({"role":"assistant","content":"Research title noted. Viva started."})
+            st.stop()
+
+        # Process actual response
         st.session_state.student_responses.append(user_input)
 
         # Score response
