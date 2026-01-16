@@ -199,7 +199,7 @@ def main():
     if force_stop:
         st.session_state.viva_completed = True
 
-    # Display chat history: Student input first, then assistant response
+    # Display chat history (student input first, then assistant)
     for i in range(0, len(st.session_state.messages), 2):
         # Student message
         if i < len(st.session_state.messages):
@@ -214,7 +214,7 @@ def main():
                 with st.chat_message("assistant"):
                     st.markdown(assistant_msg["content"])
 
-    # Display analytics dashboard (examiner only)
+    # Display analytics dashboard
     with st.sidebar:
         st.header("📊 Viva Analytics Dashboard")
         total_q = st.session_state.question_count
@@ -321,4 +321,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
