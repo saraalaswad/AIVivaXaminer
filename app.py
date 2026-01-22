@@ -107,17 +107,12 @@ def main():
             "Max questions", min_value=1, value=st.session_state.max_questions
         )
 
-        # Manual overrides
-        st.sidebar.markdown("**Manual Overrides**")
+        # Manual override: Force Stop
+        st.sidebar.markdown("**Manual Override**")
         force_stop = st.sidebar.button("Force Stop Viva")
-        skip_question = st.sidebar.button("Skip Question")
-
         if force_stop:
             st.session_state.viva_active = False
             st.warning("Viva forcibly stopped by examiner.")
-    else:
-        max_questions = st.session_state.max_questions
-        skip_question = False
 
     # -------------------------------
     # Display chat messages
@@ -142,12 +137,6 @@ def main():
         with st.chat_message("user"):
             st.markdown(user_input)
         st.session_state.messages.append({"role": "user", "content": user_input})
-
-        # Skip question manually
-        if st.session_state.examiner_logged_in and skip_question:
-            st.session_state.question_count += 1
-            st.info("Examiner skipped this question.")
-            return
 
         # Generate assistant response
         with st.chat_message("assistant"):
