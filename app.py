@@ -69,17 +69,25 @@ def main():
     st.title(":computer: AIVivaXaminer")
 
     # -------------------------------
-    # Examiner Authentication
+    # Initialize session state
     # -------------------------------
     if "examiner_logged_in" not in st.session_state:
         st.session_state.examiner_logged_in = False
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "question_count" not in st.session_state:
+        st.session_state.question_count = 0
+    if "viva_active" not in st.session_state:
+        st.session_state.viva_active = True
 
+    # -------------------------------
+    # Examiner Authentication / Log out
+    # -------------------------------
     if st.session_state.examiner_logged_in:
         st.sidebar.success("Examiner logged in")
         if st.sidebar.button("Log out"):
             st.session_state.examiner_logged_in = False
-            st.sidebar.warning("Examiner logged out. Control panel hidden.")
-            return  # refresh the app
+            st.sidebar.info("Logged out. Control panel hidden, session preserved.")
     else:
         password = st.sidebar.text_input("Examiner Password", type="password")
         if password and password == EXAMINER_PASSWORD:
@@ -87,16 +95,6 @@ def main():
             st.sidebar.success("Examiner authenticated. Control panel unlocked.")
         elif password:
             st.sidebar.error("Incorrect password!")
-
-    # -------------------------------
-    # Initialize session state
-    # -------------------------------
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    if "question_count" not in st.session_state:
-        st.session_state.question_count = 0
-    if "viva_active" not in st.session_state:
-        st.session_state.viva_active = True
 
     # -------------------------------
     # Examiner Control Panel (Sidebar)
@@ -115,6 +113,7 @@ def main():
             st.session_state.viva_active = False
             st.warning("Viva forcibly stopped by examiner.")
     else:
+        # Defaults when logged out
         max_questions = 10
         difficulty_level = "Medium"
         viva_type = "Project"
