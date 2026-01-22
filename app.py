@@ -1,309 +1,161 @@
 import streamlit as st
 import time
-import json
-import tempfile
-import pandas as pd
-import altair as alt
-from dotenv import load_dotenv
 from langchain.document_loaders.csv_loader import CSVLoader
 from langchain.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.prompts import PromptTemplate
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import LLMChain
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.pagesizes import A4
+from dotenv import load_dotenv
 
 load_dotenv()
 
-# ─────────────────────────────────────────────
-# CONFIG
-# ─────────────────────────────────────────────
-DEFAULT_MAX_QUESTIONS = 10
-MIN_COVERAGE = {"General": 2, "Technical": 2, "Critical": 1, "Future": 1}
-
-# ─────────────────────────────────────────────
-# VECTOR STORE
-# ─────────────────────────────────────────────
+# 1. Vectorise the student-teacher response CSV data
 loader = CSVLoader(file_path="ts_response.csv")
 documents = loader.load()
+
 embeddings = OpenAIEmbeddings()
 db = FAISS.from_documents(documents, embeddings)
 
+# 2. Function for similarity search
 def retrieve_info(query):
-    docs = db.similarity_search(query, k=3)
-    return "\n".join([d.page_content for d in docs])
+    similar_response = db.similarity_search(query, k=3)
+    return [doc.page_content for doc in similar_response]
 
-# ─────────────────────────────────────────────
-# LLM
-# ─────────────────────────────────────────────
-llm = ChatOpenAI(model="gpt-4-turbo", temperature=0.4)
+# 3. Setup LLMChain & prompts
+llm = ChatOpenAI(temperature=0.7, model="gpt-4-turbo")
 
-# ─────────────────────────────────────────────
-# PROMPTS
-# ─────────────────────────────────────────────
-VIVA_PROMPT = """
-You are AIVivaXaminer, an AI-based undergraduate viva examiner.
+template = """
+You are AIVivaXaminer, an AI-based academic examiner conducting a structured undergraduate viva assessment.
 
-STRICT RULES:
-- Ask ONE new question only.
-- NEVER repeat any previous question.
-- Output ONLY the question.
-- No explanations.
+────────────────────────────────────
+RULES
+────────────────────────────────────
+1. Ask ONE question at a time.
+2. Wait for the student’s full response before proceeding.
+3. NEVER repeat a question. Check against the list below before generating a new question.
+4. Provide examiner-style qualitative feedback internally only.
+5. Scores are INTERNAL only; NEVER reveal them.
+6. Maintain a professional, academic examiner tone.
 
-
-
-PREVIOUS QUESTIONS:
+────────────────────────────────────
+QUESTION HISTORY
+────────────────────────────────────
+Previously asked questions:
 {question_history}
 
-STUDENT INPUT:
-{message}
+────────────────────────────────────
+QUESTION STRATEGY
+────────────────────────────────────
+- Categories: General Understanding, Technical Depth (if applicable), Critical Thinking, Domain-Specific Inquiry, Future Scope & Application
+- Start from foundational knowledge and progress to higher-order reasoning.
+- Select questions NOT in {question_history}.
 
-BEST PRACTICE CONTEXT:
-{best_practice}
+────────────────────────────────────
+ASSESSMENT FRAMEWORK (INTERNAL ONLY)
+────────────────────────────────────
+Evaluate each response using these dimensions:
+1. Conceptual Understanding
+2. Methodological Rigor
+3. Technical Depth (if applicable)
+4. Critical Thinking
+5. Communication & Academic Articulation
 
-If no new meaningful questions remain, output:
-FINAL_EVALUATION_READY
+Scoring scale (internal only):
+0 = Not demonstrated
+1 = Weak
+2 = Adequate
+3 = Good
+4 = Excellent
+
+────────────────────────────────────
+STOPPING RULES
+────────────────────────────────────
+Terminate the viva when ANY of the following occurs:
+1. Minimum category coverage:
+   - ≥2 general understanding questions
+   - ≥2 technical questions (if applicable)
+   - ≥1 critical thinking question
+   - ≥1 future-oriented question
+2. Performance stabilization:
+   - Average scores change ≤ ±0.5 across three consecutive questions
+3. Knowledge exhaustion:
+   - Two consecutive weak responses (score ≤ 1) in the same dimension
+4. Sustained excellence:
+   - Average score ≥ 3.5 for three consecutive questions
+5. Maximum question limit:
+   - Undergraduate viva: 8–12 questions
+   - Capstone project: up to 15 questions
+6. Two consecutive non-substantive or irrelevant responses
+
+────────────────────────────────────
+OUTPUT RULES
+────────────────────────────────────
+- During viva: output ONLY the next question.
+- After stopping: output ONLY the final evaluation report containing:
+  • Overall performance level
+  • Key strengths
+  • Areas for improvement
+  • Final recommendation (Pass / Pass with Minor Revisions / Borderline / Fail)
 """
 
-CATEGORY_PROMPT = """
-Classify the following question into EXACTLY ONE category:
-General, Technical, Critical, Domain, Future
-
-Question:
-{question}
-
-Return ONLY one word.
-"""
-
-SCORING_PROMPT = """
-Evaluate the student's response using the rubric.
-Return ONLY valid JSON.
-
-Rubric dimensions:
-Conceptual, Methodological, Technical, Critical, Communication
-Scale: 0–4
-
-Student Response:
-{student_response}
-
-JSON:
-{
- "Conceptual": X,
- "Methodological": X,
- "Technical": X,
- "Critical": X,
- "Communication": X
-}
-"""
-
-viva_chain = LLMChain(
-    llm=llm,
-    prompt=PromptTemplate(
-        input_variables=["message", "best_practice", "question_history"],
-        template=VIVA_PROMPT
-    )
+prompt = PromptTemplate(
+    input_variables=["message", "best_practice", "question_history"],
+    template=template
 )
 
-category_chain = LLMChain(
-    llm=llm,
-    prompt=PromptTemplate(
-        input_variables=["question"],
-        template=CATEGORY_PROMPT
+chain = LLMChain(llm=llm, prompt=prompt)
+
+# 4. Retrieval augmented generation
+def generate_response(message, question_history):
+    best_practice = retrieve_info(message)
+    response = chain.run(
+        message=message, 
+        best_practice=best_practice, 
+        question_history="\n".join(question_history)
     )
-)
+    return response
 
-scoring_chain = LLMChain(
-    llm=llm,
-    prompt=PromptTemplate(
-        input_variables=["student_response"],
-        template=SCORING_PROMPT
-    )
-)
-
-# ─────────────────────────────────────────────
-# PDF GENERATION
-# ─────────────────────────────────────────────
-def generate_viva_pdf(questions, responses, averages, overall, recommendation):
-    styles = getSampleStyleSheet()
-    elements = []
-
-    elements.append(Paragraph("AIVivaXaminer – Final Viva Report", styles["Title"]))
-    elements.append(Spacer(1, 12))
-    elements.append(Paragraph(f"<b>Overall Score:</b> {overall}", styles["Normal"]))
-    elements.append(Paragraph(f"<b>Final Recommendation:</b> {recommendation}", styles["Normal"]))
-    elements.append(Spacer(1, 12))
-
-    elements.append(Paragraph("<b>Dimension Averages</b>", styles["Heading2"]))
-    for k, v in averages.items():
-        elements.append(Paragraph(f"{k}: {v}", styles["Normal"]))
-
-    elements.append(Spacer(1, 12))
-    elements.append(Paragraph("<b>Viva Questions & Responses</b>", styles["Heading2"]))
-
-    for i, (q, r) in enumerate(zip(questions, responses), 1):
-        elements.append(Spacer(1, 8))
-        elements.append(Paragraph(f"<b>Q{i}:</b> {q}", styles["Normal"]))
-        elements.append(Paragraph(f"<b>Response:</b> {r}", styles["Normal"]))
-
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    doc = SimpleDocTemplate(tmp.name, pagesize=A4)
-    doc.build(elements)
-    return tmp.name
-
-# ─────────────────────────────────────────────
-# FINAL SCORING
-# ─────────────────────────────────────────────
-def compute_final_result(scores):
-    averages = {}
-    for dim, vals in scores.items():
-        if vals:
-            averages[dim] = round(sum(vals)/len(vals), 2)
-    overall = round(sum(averages.values()) / len(averages), 2) if averages else 0
-
-    if overall >= 3.5:
-        rec = "Pass"
-    elif overall >= 3.0:
-        rec = "Pass with Minor Revisions"
-    elif overall >= 2.5:
-        rec = "Borderline"
-    else:
-        rec = "Fail"
-
-    return averages, overall, rec
-
-# ─────────────────────────────────────────────
-# STREAMLIT APP
-# ─────────────────────────────────────────────
+# 5. Build an app with Streamlit
 def main():
-    st.set_page_config("AIVivaXaminer", "🤖")
-    st.title("🤖 AIVivaXaminer")
+    st.set_page_config(page_title="AIVivaXaminer", page_icon=":computer:")
+    st.title(":computer: AIVivaXaminer")
 
-    # Examiner panel
-    with st.sidebar:
-        st.header("🎛 Examiner Control Panel")
-        max_q = st.slider("Maximum Questions", 5, 15, DEFAULT_MAX_QUESTIONS)
-        force_stop = st.button("🛑 Force Stop Viva")
+    # Initialize chat and question history
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "question_history" not in st.session_state:
+        st.session_state.question_history = []
 
-    # Session state initialization
-    defaults = {
-        "messages": [], "question_history": [], "student_responses": [], "question_count": 0,
-        "viva_completed": False,
-        "category_counter": {"General":0,"Technical":0,"Critical":0,"Domain":0,"Future":0},
-        "scores": {"Conceptual":[], "Methodological":[], "Technical":[], "Critical":[], "Communication":[]}
-    }
-    for key, val in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = val
+    # Display chat messages from history on app rerun
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-    # Force stop
-    if force_stop:
-        st.session_state.viva_completed = True
+    # Accept user input
+    if user_input := st.chat_input("Enter your research title or question:"):
+        # Display user message in chat
+        with st.chat_message("user"):
+            st.markdown(user_input)
+        st.session_state.messages.append({"role": "user", "content": user_input})
 
-    
-
-    # Display analytics dashboard (examiner only)
-    with st.sidebar:
-        st.header("📊 Viva Analytics Dashboard")
-        total_q = st.session_state.question_count
-        st.write(f"Questions Asked: {total_q} / {max_q}")
-
-        # Category coverage
-        st.subheader("Category Coverage")
-        for cat, count in st.session_state.category_counter.items():
-            st.progress(min(count / MIN_COVERAGE.get(cat, max_q), 1.0))
-            st.write(f"{cat}: {count}")
-
-        # Average scores
-        st.subheader("Rubric Dimension Averages")
-        averages = {}
-        for dim, vals in st.session_state.scores.items():
-            avg = round(sum(vals) / len(vals), 2) if vals else 0
-            averages[dim] = avg
-            st.write(f"{dim}: {avg}")
-
-        # Viva status
-        st.subheader("Viva Status")
-        status = "Completed ✅" if st.session_state.viva_completed else "Ongoing 🟢"
-        st.write(status)
-
-        # Score chart
-        df_scores = pd.DataFrame([{"Dimension": k, "Average": v} for k, v in averages.items()])
-        chart = alt.Chart(df_scores).mark_bar().encode(x='Dimension', y='Average', color='Dimension')
-        st.altair_chart(chart, use_container_width=True)
-
-    # If viva completed, generate PDF
-    if st.session_state.viva_completed:
-        averages, overall, rec = compute_final_result(st.session_state.scores)
-        pdf = generate_viva_pdf(
-            st.session_state.question_history,
-            st.session_state.student_responses,
-            averages, overall, rec
-        )
-        st.markdown(f"### 🧾 Final Recommendation: **{rec}**")
-        with open(pdf, "rb") as f:
-            st.download_button("📄 Download Viva Report (PDF)", f, "AIViva_Report.pdf")
-        st.stop()
-
-    # Display chat history
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
-
-    
-    # Student input
-    if user_input := st.chat_input("Enter your research title"):
-        st.session_state.messages.append({"role":"user","content":user_input})
-        st.session_state.student_responses.append(user_input)
-
-        # Score response
-        try:
-            s = json.loads(scoring_chain.run(student_response=user_input))
-            for k in st.session_state.scores:
-                st.session_state.scores[k].append(s.get(k,0))
-        except:
-            pass
-
-        # Retrieve best practice context
-        best = retrieve_info(user_input)
-        history = "\n".join(st.session_state.question_history)
-
-        # Generate next question
-        question = viva_chain.run(
-            message=user_input,
-            best_practice=best,
-            question_history=history
-        ).strip()
-
-        if question == "FINAL_EVALUATION_READY":
-            st.session_state.viva_completed = True
-            st.stop()
-
-        # Deduplication
-        if question in st.session_state.question_history:
-            st.stop()
-
-        # Category detection
-        cat = category_chain.run(question=question).strip()
-        if cat in st.session_state.category_counter:
-            st.session_state.category_counter[cat] += 1
-
-        # Update question history and counter
-        st.session_state.question_history.append(question)
-        st.session_state.question_count += 1
-
-        # Stopping rules: max questions OR category coverage
-        if st.session_state.question_count >= max_q or all(
-            st.session_state.category_counter[k] >= v for k,v in MIN_COVERAGE.items()
-        ):
-            st.session_state.viva_completed = True
-
-        # Display question
+        # Generate assistant response with question deduplication
         with st.chat_message("assistant"):
-            st.markdown(question)
-        st.session_state.messages.append({"role":"assistant","content":question})
+            message_placeholder = st.empty()
+            full_response = ""
+            assistant_response = generate_response(user_input, st.session_state.question_history)
+
+            # Add the question to history to prevent repeats
+            st.session_state.question_history.append(assistant_response.strip())
+
+            # Simulate typing effect
+            for chunk in assistant_response.split():
+                full_response += chunk + " "
+                time.sleep(0.05)
+                message_placeholder.markdown(full_response + "▌")
+            message_placeholder.markdown(full_response)
+
+        st.session_state.messages.append({"role": "assistant", "content": full_response})
 
 if __name__ == "__main__":
     main()
-
