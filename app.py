@@ -10,77 +10,63 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# 1. Vectorise the student teacher response csv data
+# -------------------------------
+# 1. Vectorise the student-teacher response csv data
+# -------------------------------
 loader = CSVLoader(file_path="ts_response.csv")
 documents = loader.load()
-
 embeddings = OpenAIEmbeddings()
 db = FAISS.from_documents(documents, embeddings)
 
+# -------------------------------
 # 2. Function for similarity search
+# -------------------------------
 def retrieve_info(query):
     similar_response = db.similarity_search(query, k=3)
-    page_contents_array = [doc.page_content for doc in similar_response]
-    return page_contents_array
+    return [doc.page_content for doc in similar_response]
 
+# -------------------------------
 # 3. Setup LLMChain & prompts
+# -------------------------------
 llm = ChatOpenAI(temperature=0.7, model="gpt-4-turbo")
 
 template = """
 You are an experienced academic professor conducting a viva for an undergraduate student. Your goal is to evaluate the student’s understanding of their research project by asking questions one at a time, then discussing their answer with constructive feedback.
 
-You have been provided:
+Student message: {message}
+Best practices: {best_practice}
 
-The student’s message: {message}
+Instructions:
+- Ask one question at a time.
+- Maintain supportive but challenging tone.
+- Adapt to viva type: {viva_type}
+- Adjust question difficulty: {difficulty_level}
+- Follow best practices.
+- Do not repeat questions.
 
-Best practices for responding: {best_practice}
-
-Your instructions:
-
-Ask questions designed to probe the student’s knowledge of concepts, methodology, findings, problem-solving, and critical thinking.
-
-Maintain a supportive but challenging tone, helping the student articulate and defend their ideas.
-
-Follow the style, tone, length, and logic of the best practices provided.
-
-Ask only one question at a time; wait for the student’s full answer before moving on.
-
-Do not repeat questions.
-
-If some best practices are irrelevant, mimic their style and approach in your response.
-
-Question Categories (choose as appropriate for the student’s project):
-
-General: project overview, motivation, challenges, validation, tools/technologies
-Technical: system architecture, data security, algorithms, database design, data flow
-Problem-Solving/Critical Thinking: lessons learned, scalability, comparison with other solutions, performance optimization
-Domain-Specific: web/AI/ML/network considerations
-Future Scope: enhancements, real-world application, deployment challenges, tech evolution
-
-Task: Using {message} and {best_practice}, generate the next viva question along with brief guidance to the student. Keep it clear, professional, and aligned with best practices.
+Task: Generate the next viva question and guidance for the student.
 """
 
 prompt = PromptTemplate(
-    input_variables=["message", "best_practice"],
+    input_variables=["message", "best_practice", "viva_type", "difficulty_level"],
     template=template
 )
 
 chain = LLMChain(llm=llm, prompt=prompt)
 
-# 4. Retrieval augmented generation
-def generate_response(message):
+def generate_response(message, viva_type, difficulty_level):
     best_practice = retrieve_info(message)
-    response = chain.run(message=message, best_practice=best_practice)
-    return response
+    return chain.run(message=message, best_practice=best_practice,
+                     viva_type=viva_type, difficulty_level=difficulty_level)
 
-# 5. Build an app with Streamlit with stopping rules
-MAX_QUESTIONS = 3  # Stop after 10 questions automatically
-
+# -------------------------------
+# 4. Streamlit app
+# -------------------------------
 def main():
     st.set_page_config(page_title="AIVivaXaminer", page_icon=":computer:")
     st.title(":computer: AIVivaXaminer")
 
-    # Initialize chat history and question count
+    # Initialize session state
     if "messages" not in st.session_state:
         st.session_state.messages = []
     if "question_count" not in st.session_state:
@@ -88,34 +74,60 @@ def main():
     if "viva_active" not in st.session_state:
         st.session_state.viva_active = True
 
-    # Display chat messages from history on app rerun
+    # -------------------------------
+    # Examiner Control Panel (Advanced)
+    # -------------------------------
+    with st.expander("Examiner Control Panel (Advanced)"):
+        st.markdown("**Only examiner should use these controls**")
+        max_questions = st.number_input("Max questions", min_value=1, value=10)
+        difficulty_level = st.select_slider("Difficulty level", ["Easy", "Medium", "Hard"], value="Medium")
+        viva_type = st.selectbox("Viva type", ["Project", "Thesis", "Capstone"])
+        
+        # Manual overrides
+        col1, col2 = st.columns(2)
+        with col1:
+            force_stop = st.button("Force Stop Viva")
+        with col2:
+            skip_question = st.button("Skip Question")
+
+        # Apply manual stop
+        if force_stop:
+            st.session_state.viva_active = False
+            st.warning("Viva forcibly stopped by examiner.")
+
+    # Display chat messages from history
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # Stop condition
+    # Stop if viva inactive
     if not st.session_state.viva_active:
         st.info("Viva session has ended. Thank you!")
         return
 
     # Accept user input
-    if prompt_input := st.chat_input("Your response (or type 'end viva' to finish):"):
-        # Check if student wants to end viva
-        if prompt_input.strip().lower() == "end viva":
+    if user_input := st.chat_input("Your response (or type 'end viva' to finish):"):
+        if user_input.strip().lower() == "end viva":
             st.session_state.viva_active = False
             st.success("Viva session ended by the student.")
             return
 
-        # Display user message in chat container
+        # Add user message
         with st.chat_message("user"):
-            st.markdown(prompt_input)
-        st.session_state.messages.append({"role": "user", "content": prompt_input})
+            st.markdown(user_input)
+        st.session_state.messages.append({"role": "user", "content": user_input})
+
+        # Skip question manually
+        if skip_question:
+            st.session_state.question_count += 1
+            st.info("Examiner skipped this question.")
+            return
 
         # Generate assistant response
         with st.chat_message("assistant"):
             message_placeholder = st.empty()
             full_response = ""
-            assistant_response = generate_response(prompt_input)
+            assistant_response = generate_response(user_input, viva_type, difficulty_level)
             for chunk in assistant_response.split():
                 full_response += chunk + " "
                 time.sleep(0.05)
@@ -123,12 +135,11 @@ def main():
             message_placeholder.markdown(full_response)
         st.session_state.messages.append({"role": "assistant", "content": full_response})
 
-        # Increment question counter
+        # Increment question count and check max
         st.session_state.question_count += 1
-        if st.session_state.question_count >= MAX_QUESTIONS:
+        if st.session_state.question_count >= max_questions:
             st.session_state.viva_active = False
             st.warning("Maximum number of questions reached. Viva session ended.")
 
 if __name__ == '__main__':
     main()
-
