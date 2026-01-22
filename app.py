@@ -14,19 +14,13 @@ load_dotenv()
 loader = CSVLoader(file_path="ts_response.csv")
 documents = loader.load()
 
-#print(len(documents))
-
 embeddings = OpenAIEmbeddings()
 db = FAISS.from_documents(documents, embeddings)
 
 # 2. Function for similarity search
 def retrieve_info(query):
     similar_response = db.similarity_search(query, k=3)
-
     page_contents_array = [doc.page_content for doc in similar_response]
-
-    #print(page_contents_array)
-
     return page_contents_array
 
 # 3. Setup LLMChain & prompts
@@ -58,17 +52,12 @@ If some best practices are irrelevant, mimic their style and approach in your re
 Question Categories (choose as appropriate for the student’s project):
 
 General: project overview, motivation, challenges, validation, tools/technologies
-
 Technical: system architecture, data security, algorithms, database design, data flow
-
 Problem-Solving/Critical Thinking: lessons learned, scalability, comparison with other solutions, performance optimization
-
 Domain-Specific: web/AI/ML/network considerations
-
 Future Scope: enhancements, real-world application, deployment challenges, tech evolution
 
-Task: Using {message} and {best_practice}, generate the first viva question along with brief guidance to the student. Keep it clear, professional, and aligned with best practices.
-
+Task: Using {message} and {best_practice}, generate the next viva question along with brief guidance to the student. Keep it clear, professional, and aligned with best practices.
 """
 
 prompt = PromptTemplate(
@@ -84,51 +73,61 @@ def generate_response(message):
     response = chain.run(message=message, best_practice=best_practice)
     return response
 
-# 5. Build an app with streamlit
-def main():
-    st.set_page_config(
-        page_title="AIVivaXaminer", page_icon=":computer:")
+# 5. Build an app with Streamlit with stopping rules
+MAX_QUESTIONS = 10  # Stop after 10 questions automatically
 
+def main():
+    st.set_page_config(page_title="AIVivaXaminer", page_icon=":computer:")
     st.title(":computer: AIVivaXaminer")
-    
-    # Initialize chat history
+
+    # Initialize chat history and question count
     if "messages" not in st.session_state:
         st.session_state.messages = []
+    if "question_count" not in st.session_state:
+        st.session_state.question_count = 0
+    if "viva_active" not in st.session_state:
+        st.session_state.viva_active = True
 
     # Display chat messages from history on app rerun
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
+    # Stop condition
+    if not st.session_state.viva_active:
+        st.info("Viva session has ended. Thank you!")
+        return
+
     # Accept user input
-    if prompt := st.chat_input("What is your research title?"):
-        # Display user message in chat message container
+    if prompt_input := st.chat_input("Your response (or type 'end viva' to finish):"):
+        # Check if student wants to end viva
+        if prompt_input.strip().lower() == "end viva":
+            st.session_state.viva_active = False
+            st.success("Viva session ended by the student.")
+            return
+
+        # Display user message in chat container
         with st.chat_message("user"):
-            st.markdown(prompt)
-        # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        # Display assistant response in chat message container
+            st.markdown(prompt_input)
+        st.session_state.messages.append({"role": "user", "content": prompt_input})
+
+        # Generate assistant response
         with st.chat_message("assistant"):
             message_placeholder = st.empty()
             full_response = ""
-            assistant_response = generate_response(prompt)
-            # Simulate stream of response with milliseconds delay
+            assistant_response = generate_response(prompt_input)
             for chunk in assistant_response.split():
                 full_response += chunk + " "
                 time.sleep(0.05)
-                # Add a blinking cursor to simulate typing
                 message_placeholder.markdown(full_response + "▌")
             message_placeholder.markdown(full_response)
-        # Add assistant response to chat history
         st.session_state.messages.append({"role": "assistant", "content": full_response})
-    
 
+        # Increment question counter
+        st.session_state.question_count += 1
+        if st.session_state.question_count >= MAX_QUESTIONS:
+            st.session_state.viva_active = False
+            st.warning("Maximum number of questions reached. Viva session ended.")
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
