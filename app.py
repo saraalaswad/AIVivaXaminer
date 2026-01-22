@@ -69,24 +69,21 @@ def main():
     st.title(":computer: AIVivaXaminer")
 
     # -------------------------------
-    # Initialize session state
+    # Initialize persistent session state
     # -------------------------------
-    if "examiner_logged_in" not in st.session_state:
-        st.session_state.examiner_logged_in = False
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    if "question_count" not in st.session_state:
-        st.session_state.question_count = 0
-    if "viva_active" not in st.session_state:
-        st.session_state.viva_active = True
+    defaults = {
+        "examiner_logged_in": False,
+        "messages": [],
+        "question_count": 0,
+        "viva_active": True,
+        "max_questions": 10,
+        "difficulty_level": "Medium",
+        "viva_type": "Project"
+    }
 
-    # Persist last settings
-    if "max_questions" not in st.session_state:
-        st.session_state.max_questions = 10
-    if "difficulty_level" not in st.session_state:
-        st.session_state.difficulty_level = "Medium"
-    if "viva_type" not in st.session_state:
-        st.session_state.viva_type = "Project"
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
     # -------------------------------
     # Examiner Authentication / Log out
@@ -96,6 +93,7 @@ def main():
         if st.sidebar.button("Log out"):
             st.session_state.examiner_logged_in = False
             st.sidebar.info("Logged out. Control panel hidden, session preserved.")
+            # DO NOT reset any other session variables!
     else:
         password = st.sidebar.text_input("Examiner Password", type="password")
         if password and password == EXAMINER_PASSWORD:
@@ -110,7 +108,6 @@ def main():
     if st.session_state.examiner_logged_in:
         st.sidebar.header("Examiner Control Panel")
 
-        # Use last values as defaults
         st.session_state.max_questions = st.sidebar.number_input(
             "Max questions", min_value=1, value=st.session_state.max_questions
         )
@@ -118,7 +115,8 @@ def main():
             "Difficulty level", ["Easy", "Medium", "Hard"], value=st.session_state.difficulty_level
         )
         st.session_state.viva_type = st.sidebar.selectbox(
-            "Viva type", ["Project", "Thesis", "Capstone"], index=["Project","Thesis","Capstone"].index(st.session_state.viva_type)
+            "Viva type", ["Project", "Thesis", "Capstone"],
+            index=["Project", "Thesis", "Capstone"].index(st.session_state.viva_type)
         )
 
         st.sidebar.markdown("**Manual Overrides**")
