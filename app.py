@@ -52,13 +52,13 @@ STRICT RULES:
 - Output ONLY the question.
 - No explanations.
 
-STUDENT INPUT:
-{message}
+
 
 PREVIOUS QUESTIONS:
 {question_history}
 
-
+STUDENT INPUT:
+{message}
 
 BEST PRACTICE CONTEXT:
 {best_practice}
@@ -201,10 +201,7 @@ def main():
     if force_stop:
         st.session_state.viva_completed = True
 
-    # Display chat history
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+    
 
     # Display analytics dashboard (examiner only)
     with st.sidebar:
@@ -249,6 +246,12 @@ def main():
             st.download_button("📄 Download Viva Report (PDF)", f, "AIViva_Report.pdf")
         st.stop()
 
+    # Display chat history
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    
     # Student input
     if user_input := st.chat_input("Enter your research title"):
         st.session_state.messages.append({"role":"user","content":user_input})
