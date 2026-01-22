@@ -52,11 +52,13 @@ STRICT RULES:
 - Output ONLY the question.
 - No explanations.
 
+STUDENT INPUT:
+{message}
+
 PREVIOUS QUESTIONS:
 {question_history}
 
-STUDENT INPUT:
-{message}
+
 
 BEST PRACTICE CONTEXT:
 {best_practice}
@@ -301,3 +303,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
