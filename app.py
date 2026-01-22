@@ -69,32 +69,12 @@ def main():
     st.title(":computer: AIVivaXaminer")
 
     # -------------------------------
-    # Initialize persistent session state
+    # Examiner Authentication
     # -------------------------------
-    defaults = {
-        "examiner_logged_in": False,
-        "messages": [],
-        "question_count": 0,
-        "viva_active": True,
-        "max_questions": 10,
-        "difficulty_level": "Medium",
-        "viva_type": "Project"
-    }
+    if "examiner_logged_in" not in st.session_state:
+        st.session_state.examiner_logged_in = False
 
-    for key, value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
-
-    # -------------------------------
-    # Examiner Authentication / Log out
-    # -------------------------------
-    if st.session_state.examiner_logged_in:
-        st.sidebar.success("Examiner logged in")
-        if st.sidebar.button("Log out"):
-            st.session_state.examiner_logged_in = False
-            st.sidebar.info("Logged out. Control panel hidden, session preserved.")
-            # DO NOT reset any other session variables!
-    else:
+    if not st.session_state.examiner_logged_in:
         password = st.sidebar.text_input("Examiner Password", type="password")
         if password and password == EXAMINER_PASSWORD:
             st.session_state.examiner_logged_in = True
@@ -103,22 +83,24 @@ def main():
             st.sidebar.error("Incorrect password!")
 
     # -------------------------------
+    # Initialize session state
+    # -------------------------------
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "question_count" not in st.session_state:
+        st.session_state.question_count = 0
+    if "viva_active" not in st.session_state:
+        st.session_state.viva_active = True
+
+    # -------------------------------
     # Examiner Control Panel (Sidebar)
     # -------------------------------
     if st.session_state.examiner_logged_in:
         st.sidebar.header("Examiner Control Panel")
-
-        st.session_state.max_questions = st.sidebar.number_input(
-            "Max questions", min_value=1, value=st.session_state.max_questions
-        )
-        st.session_state.difficulty_level = st.sidebar.select_slider(
-            "Difficulty level", ["Easy", "Medium", "Hard"], value=st.session_state.difficulty_level
-        )
-        st.session_state.viva_type = st.sidebar.selectbox(
-            "Viva type", ["Project", "Thesis", "Capstone"],
-            index=["Project", "Thesis", "Capstone"].index(st.session_state.viva_type)
-        )
-
+        max_questions = st.sidebar.number_input("Max questions", min_value=1, value=10)
+        difficulty_level = st.sidebar.select_slider("Difficulty level", ["Easy", "Medium", "Hard"], value="Medium")
+        viva_type = st.sidebar.selectbox("Viva type", ["Project", "Thesis", "Capstone"])
+        
         st.sidebar.markdown("**Manual Overrides**")
         force_stop = st.sidebar.button("Force Stop Viva")
         skip_question = st.sidebar.button("Skip Question")
@@ -127,10 +109,9 @@ def main():
             st.session_state.viva_active = False
             st.warning("Viva forcibly stopped by examiner.")
     else:
-        # Use stored settings even if logged out
-        max_questions = st.session_state.max_questions
-        difficulty_level = st.session_state.difficulty_level
-        viva_type = st.session_state.viva_type
+        max_questions = 10
+        difficulty_level = "Medium"
+        viva_type = "Project"
         skip_question = False
 
     # -------------------------------
@@ -158,7 +139,7 @@ def main():
         st.session_state.messages.append({"role": "user", "content": user_input})
 
         # Skip question manually
-        if st.session_state.examiner_logged_in and skip_question:
+        if skip_question:
             st.session_state.question_count += 1
             st.info("Examiner skipped this question.")
             return
@@ -167,11 +148,7 @@ def main():
         with st.chat_message("assistant"):
             message_placeholder = st.empty()
             full_response = ""
-            assistant_response = generate_response(
-                user_input,
-                st.session_state.viva_type,
-                st.session_state.difficulty_level
-            )
+            assistant_response = generate_response(user_input, viva_type, difficulty_level)
             for chunk in assistant_response.split():
                 full_response += chunk + " "
                 time.sleep(0.05)
@@ -181,7 +158,7 @@ def main():
 
         # Increment question count and check max
         st.session_state.question_count += 1
-        if st.session_state.question_count >= st.session_state.max_questions:
+        if st.session_state.question_count >= max_questions:
             st.session_state.viva_active = False
             st.warning("Maximum number of questions reached. Viva session ended.")
 
