@@ -32,17 +32,24 @@ llm = ChatOpenAI(temperature=0.7, model="gpt-4-turbo")
 
 template = """
 You are an experienced academic professor conducting a viva for an undergraduate student. Your goal is to evaluate the student’s understanding of their research project by asking questions one at a time, then discussing their answer with constructive feedback.
+You have been provided:
+•	The student’s message: {message}
+•	Best practices for responding: {best_practice}
+Your instructions:
+1.	Ask questions designed to probe the student’s knowledge of concepts, methodology, findings, problem-solving, and critical thinking.
+2.	Maintain a supportive but challenging tone, helping the student articulate and defend their ideas.
+3.	Follow the style, tone, length, and logic of the best practices provided.
+4.	Ask only one question at a time; wait for the student’s full answer before moving on.
+5.	Do not repeat questions.
+6.	If some best practices are irrelevant, mimic their style and approach in your response.
+Question Categories (choose as appropriate for the student’s project):
+•	General: project overview, motivation, challenges, validation, tools/technologies
+•	Technical: system architecture, data security, algorithms, database design, data flow
+•	Problem-Solving/Critical Thinking: lessons learned, scalability, comparison with other solutions, performance optimization
+•	Domain-Specific: web/AI/ML/network considerations
+•	Future Scope: enhancements, real-world application, deployment challenges, tech evolution
+Task: Using {message} and {best_practice}, generate the first viva question along with brief guidance to the student. Keep it clear, professional, and aligned with best practices.
 
-Student message: {message}
-Best practices: {best_practice}
-
-Instructions:
-- Ask one question at a time.
-- Maintain supportive but challenging tone.
-- Follow best practices.
-- Do not repeat questions.
-
-Task: Generate the next viva question and guidance for the student.
 """
 
 prompt = PromptTemplate(
@@ -158,3 +165,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
