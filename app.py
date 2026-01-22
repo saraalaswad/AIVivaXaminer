@@ -74,7 +74,7 @@ def generate_response(message):
     return response
 
 # 5. Build an app with Streamlit with stopping rules
-MAX_QUESTIONS = 10  # Stop after 10 questions automatically
+MAX_QUESTIONS = 3  # Stop after 10 questions automatically
 
 def main():
     st.set_page_config(page_title="AIVivaXaminer", page_icon=":computer:")
@@ -131,3 +131,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
