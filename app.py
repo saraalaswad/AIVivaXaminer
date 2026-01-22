@@ -39,8 +39,6 @@ Best practices: {best_practice}
 Instructions:
 - Ask one question at a time.
 - Maintain supportive but challenging tone.
-- Adapt to viva type: {viva_type}
-- Adjust question difficulty: {difficulty_level}
 - Follow best practices.
 - Do not repeat questions.
 
@@ -48,119 +46,11 @@ Task: Generate the next viva question and guidance for the student.
 """
 
 prompt = PromptTemplate(
-    input_variables=["message", "best_practice", "viva_type", "difficulty_level"],
+    input_variables=["message", "best_practice"],
     template=template
 )
 
 chain = LLMChain(llm=llm, prompt=prompt)
 
-def generate_response(message, viva_type, difficulty_level):
-    best_practice = retrieve_info(message)
-    return chain.run(message=message, best_practice=best_practice,
-                     viva_type=viva_type, difficulty_level=difficulty_level)
-
-# -------------------------------
-# 4. Streamlit app
-# -------------------------------
-EXAMINER_PASSWORD = "exam123"  # <-- change this to a secure password
-
-def main():
-    st.set_page_config(page_title="AIVivaXaminer", page_icon=":computer:")
-    st.title(":computer: AIVivaXaminer")
-
-    # -------------------------------
-    # Examiner Authentication
-    # -------------------------------
-    if "examiner_logged_in" not in st.session_state:
-        st.session_state.examiner_logged_in = False
-
-    if not st.session_state.examiner_logged_in:
-        password = st.sidebar.text_input("Examiner Password", type="password")
-        if password and password == EXAMINER_PASSWORD:
-            st.session_state.examiner_logged_in = True
-            st.sidebar.success("Examiner authenticated. Control panel unlocked.")
-        elif password:
-            st.sidebar.error("Incorrect password!")
-
-    # -------------------------------
-    # Initialize session state
-    # -------------------------------
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    if "question_count" not in st.session_state:
-        st.session_state.question_count = 0
-    if "viva_active" not in st.session_state:
-        st.session_state.viva_active = True
-
-    # -------------------------------
-    # Examiner Control Panel (Sidebar)
-    # -------------------------------
-    if st.session_state.examiner_logged_in:
-        st.sidebar.header("Examiner Control Panel")
-        max_questions = st.sidebar.number_input("Max questions", min_value=1, value=10)
-        difficulty_level = st.sidebar.select_slider("Difficulty level", ["Easy", "Medium", "Hard"], value="Medium")
-        viva_type = st.sidebar.selectbox("Viva type", ["Project", "Thesis", "Capstone"])
-        
-        st.sidebar.markdown("**Manual Overrides**")
-        force_stop = st.sidebar.button("Force Stop Viva")
-        skip_question = st.sidebar.button("Skip Question")
-
-        if force_stop:
-            st.session_state.viva_active = False
-            st.warning("Viva forcibly stopped by examiner.")
-    else:
-        max_questions = 10
-        difficulty_level = "Medium"
-        viva_type = "Project"
-        skip_question = False
-
-    # -------------------------------
-    # Display chat messages
-    # -------------------------------
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-    # Stop if viva inactive
-    if not st.session_state.viva_active:
-        st.info("Viva session has ended. Thank you!")
-        return
-
-    # Accept user input
-    if user_input := st.chat_input("Your response (or type 'end viva' to finish):"):
-        if user_input.strip().lower() == "end viva":
-            st.session_state.viva_active = False
-            st.success("Viva session ended by the student.")
-            return
-
-        # Add user message
-        with st.chat_message("user"):
-            st.markdown(user_input)
-        st.session_state.messages.append({"role": "user", "content": user_input})
-
-        # Skip question manually
-        if skip_question:
-            st.session_state.question_count += 1
-            st.info("Examiner skipped this question.")
-            return
-
-        # Generate assistant response
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            full_response = ""
-            assistant_response = generate_response(user_input, viva_type, difficulty_level)
-            for chunk in assistant_response.split():
-                full_response += chunk + " "
-                time.sleep(0.05)
-                message_placeholder.markdown(full_response + "▌")
-            message_placeholder.markdown(full_response)
-        st.session_state.messages.append({"role": "assistant", "content": full_response})
-
-        # Increment question count and check max
-        st.session_state.question_count += 1
-        if st.session_state.question_count >= max_questions:
-            st.session_state.viva_active = False
-            st.warning("Maximum number of questions reached. Viva session ended.")
-
-if __name__ == '__main__':
-    main()
+def generate_response(message):
+    best_practice = retrieve_info(me
