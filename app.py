@@ -53,4 +53,119 @@ prompt = PromptTemplate(
 chain = LLMChain(llm=llm, prompt=prompt)
 
 def generate_response(message):
-    best_practice = retrieve_info(me
+    best_practice = retrieve_info(message)
+    return chain.run(message=message, best_practice=best_practice)
+
+# -------------------------------
+# 4. Streamlit app
+# -------------------------------
+EXAMINER_PASSWORD = "exam123"  # <-- change this to a secure password
+
+def main():
+    st.set_page_config(page_title="AIVivaXaminer", page_icon=":computer:")
+    st.title(":computer: AIVivaXaminer")
+
+    # -------------------------------
+    # Initialize persistent session state
+    # -------------------------------
+    defaults = {
+        "examiner_logged_in": False,
+        "messages": [],
+        "question_count": 0,
+        "viva_active": True,
+        "max_questions": 10
+    }
+
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+    # -------------------------------
+    # Examiner Authentication / Log out
+    # -------------------------------
+    if st.session_state.examiner_logged_in:
+        st.sidebar.success("Examiner logged in")
+        if st.sidebar.button("Log out"):
+            st.session_state.examiner_logged_in = False
+            st.sidebar.info("Logged out. Control panel hidden, session preserved.")
+    else:
+        password = st.sidebar.text_input("Examiner Password", type="password")
+        if password and password == EXAMINER_PASSWORD:
+            st.session_state.examiner_logged_in = True
+            st.sidebar.success("Examiner authenticated. Control panel unlocked.")
+        elif password:
+            st.sidebar.error("Incorrect password!")
+
+    # -------------------------------
+    # Examiner Control Panel (Sidebar)
+    # -------------------------------
+    if st.session_state.examiner_logged_in:
+        st.sidebar.header("Examiner Control Panel")
+
+        # Max questions
+        st.session_state.max_questions = st.sidebar.number_input(
+            "Max questions", min_value=1, value=st.session_state.max_questions
+        )
+
+        # Manual overrides
+        st.sidebar.markdown("**Manual Overrides**")
+        force_stop = st.sidebar.button("Force Stop Viva")
+        skip_question = st.sidebar.button("Skip Question")
+
+        if force_stop:
+            st.session_state.viva_active = False
+            st.warning("Viva forcibly stopped by examiner.")
+    else:
+        max_questions = st.session_state.max_questions
+        skip_question = False
+
+    # -------------------------------
+    # Display chat messages
+    # -------------------------------
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    # Stop if viva inactive
+    if not st.session_state.viva_active:
+        st.info("Viva session has ended. Thank you!")
+        return
+
+    # Accept user input
+    if user_input := st.chat_input("Your response (or type 'end viva' to finish):"):
+        if user_input.strip().lower() == "end viva":
+            st.session_state.viva_active = False
+            st.success("Viva session ended by the student.")
+            return
+
+        # Add user message
+        with st.chat_message("user"):
+            st.markdown(user_input)
+        st.session_state.messages.append({"role": "user", "content": user_input})
+
+        # Skip question manually
+        if st.session_state.examiner_logged_in and skip_question:
+            st.session_state.question_count += 1
+            st.info("Examiner skipped this question.")
+            return
+
+        # Generate assistant response
+        with st.chat_message("assistant"):
+            message_placeholder = st.empty()
+            full_response = ""
+            assistant_response = generate_response(user_input)
+            for chunk in assistant_response.split():
+                full_response += chunk + " "
+                time.sleep(0.05)
+                message_placeholder.markdown(full_response + "▌")
+            message_placeholder.markdown(full_response)
+        st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+        # Increment question count and check max
+        st.session_state.question_count += 1
+        if st.session_state.question_count >= st.session_state.max_questions:
+            st.session_state.viva_active = False
+            st.warning("Maximum number of questions reached. Viva session ended.")
+
+if __name__ == '__main__':
+    main()
