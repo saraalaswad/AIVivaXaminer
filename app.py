@@ -80,6 +80,14 @@ def main():
     if "viva_active" not in st.session_state:
         st.session_state.viva_active = True
 
+    # Persist last settings
+    if "max_questions" not in st.session_state:
+        st.session_state.max_questions = 10
+    if "difficulty_level" not in st.session_state:
+        st.session_state.difficulty_level = "Medium"
+    if "viva_type" not in st.session_state:
+        st.session_state.viva_type = "Project"
+
     # -------------------------------
     # Examiner Authentication / Log out
     # -------------------------------
@@ -101,10 +109,18 @@ def main():
     # -------------------------------
     if st.session_state.examiner_logged_in:
         st.sidebar.header("Examiner Control Panel")
-        max_questions = st.sidebar.number_input("Max questions", min_value=1, value=10)
-        difficulty_level = st.sidebar.select_slider("Difficulty level", ["Easy", "Medium", "Hard"], value="Medium")
-        viva_type = st.sidebar.selectbox("Viva type", ["Project", "Thesis", "Capstone"])
-        
+
+        # Use last values as defaults
+        st.session_state.max_questions = st.sidebar.number_input(
+            "Max questions", min_value=1, value=st.session_state.max_questions
+        )
+        st.session_state.difficulty_level = st.sidebar.select_slider(
+            "Difficulty level", ["Easy", "Medium", "Hard"], value=st.session_state.difficulty_level
+        )
+        st.session_state.viva_type = st.sidebar.selectbox(
+            "Viva type", ["Project", "Thesis", "Capstone"], index=["Project","Thesis","Capstone"].index(st.session_state.viva_type)
+        )
+
         st.sidebar.markdown("**Manual Overrides**")
         force_stop = st.sidebar.button("Force Stop Viva")
         skip_question = st.sidebar.button("Skip Question")
@@ -113,10 +129,10 @@ def main():
             st.session_state.viva_active = False
             st.warning("Viva forcibly stopped by examiner.")
     else:
-        # Defaults when logged out
-        max_questions = 10
-        difficulty_level = "Medium"
-        viva_type = "Project"
+        # Use stored settings even if logged out
+        max_questions = st.session_state.max_questions
+        difficulty_level = st.session_state.difficulty_level
+        viva_type = st.session_state.viva_type
         skip_question = False
 
     # -------------------------------
@@ -144,7 +160,7 @@ def main():
         st.session_state.messages.append({"role": "user", "content": user_input})
 
         # Skip question manually
-        if skip_question:
+        if st.session_state.examiner_logged_in and skip_question:
             st.session_state.question_count += 1
             st.info("Examiner skipped this question.")
             return
@@ -153,7 +169,11 @@ def main():
         with st.chat_message("assistant"):
             message_placeholder = st.empty()
             full_response = ""
-            assistant_response = generate_response(user_input, viva_type, difficulty_level)
+            assistant_response = generate_response(
+                user_input,
+                st.session_state.viva_type,
+                st.session_state.difficulty_level
+            )
             for chunk in assistant_response.split():
                 full_response += chunk + " "
                 time.sleep(0.05)
@@ -163,7 +183,7 @@ def main():
 
         # Increment question count and check max
         st.session_state.question_count += 1
-        if st.session_state.question_count >= max_questions:
+        if st.session_state.question_count >= st.session_state.max_questions:
             st.session_state.viva_active = False
             st.warning("Maximum number of questions reached. Viva session ended.")
 
