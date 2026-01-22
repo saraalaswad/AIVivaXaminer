@@ -75,13 +75,13 @@ def main():
         st.session_state.examiner_logged_in = False
 
     if not st.session_state.examiner_logged_in:
-        password = st.text_input("Examiner Password (to access control panel)", type="password")
+        password = st.sidebar.text_input("Examiner Password", type="password")
         if password and password == EXAMINER_PASSWORD:
             st.session_state.examiner_logged_in = True
-            st.success("Examiner authenticated. Control panel unlocked.")
+            st.sidebar.success("Examiner authenticated. Control panel unlocked.")
         elif password:
-            st.error("Incorrect password!")
-    
+            st.sidebar.error("Incorrect password!")
+
     # -------------------------------
     # Initialize session state
     # -------------------------------
@@ -93,28 +93,22 @@ def main():
         st.session_state.viva_active = True
 
     # -------------------------------
-    # Examiner Control Panel (Advanced)
+    # Examiner Control Panel (Sidebar)
     # -------------------------------
     if st.session_state.examiner_logged_in:
-        with st.expander("Examiner Control Panel (Advanced)"):
-            st.markdown("**Only examiner should use these controls**")
-            max_questions = st.number_input("Max questions", min_value=1, value=10)
-            difficulty_level = st.select_slider("Difficulty level", ["Easy", "Medium", "Hard"], value="Medium")
-            viva_type = st.selectbox("Viva type", ["Project", "Thesis", "Capstone"])
-            
-            # Manual overrides
-            col1, col2 = st.columns(2)
-            with col1:
-                force_stop = st.button("Force Stop Viva")
-            with col2:
-                skip_question = st.button("Skip Question")
+        st.sidebar.header("Examiner Control Panel")
+        max_questions = st.sidebar.number_input("Max questions", min_value=1, value=10)
+        difficulty_level = st.sidebar.select_slider("Difficulty level", ["Easy", "Medium", "Hard"], value="Medium")
+        viva_type = st.sidebar.selectbox("Viva type", ["Project", "Thesis", "Capstone"])
+        
+        st.sidebar.markdown("**Manual Overrides**")
+        force_stop = st.sidebar.button("Force Stop Viva")
+        skip_question = st.sidebar.button("Skip Question")
 
-            # Apply manual stop
-            if force_stop:
-                st.session_state.viva_active = False
-                st.warning("Viva forcibly stopped by examiner.")
+        if force_stop:
+            st.session_state.viva_active = False
+            st.warning("Viva forcibly stopped by examiner.")
     else:
-        # Default settings for student view
         max_questions = 10
         difficulty_level = "Medium"
         viva_type = "Project"
