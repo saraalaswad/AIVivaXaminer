@@ -1,5 +1,10 @@
 import streamlit as st
 import time
+from datetime import datetime
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+
 from langchain.document_loaders.csv_loader import CSVLoader
 from langchain.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
@@ -64,106 +69,185 @@ def generate_response(message):
     return chain.run(message=message, best_practice=best_practice)
 
 # -------------------------------
-# 4. Streamlit app
+# Viva Report Generators
 # -------------------------------
-EXAMINER_PASSWORD = "exam123"  # <-- change this to a secure password
+def generate_viva_report():
+    lines = []
+    lines.append("AIVivaXaminer – Viva Examination Report")
+    lines.append("=" * 45)
+    lines.append(f"Start Time: {st.session_state.viva_start_time}")
+    lines.append(f"End Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    lines.append(f"Total Questions Asked: {st.session_state.question_count}")
+    lines.append(f"Viva End Reason: {st.session_state.viva_end_reason}")
+    lines.append("\n--- Viva Transcript ---\n")
+
+    for msg in st.session_state.messages:
+        role = "Student" if msg["role"] == "user" else "Examiner"
+        lines.append(f"{role}: {msg['content']}\n")
+
+    return "\n".join(lines)
+
+def generate_viva_pdf():
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    x_margin = 40
+    y = height - 40
+
+    def draw(text):
+        nonlocal y
+        if y < 50:
+            c.showPage()
+            y = height - 40
+        c.drawString(x_margin, y, text)
+        y -= 14
+
+    c.setFont("Helvetica-Bold", 14)
+    draw("AIVivaXaminer – Viva Examination Report")
+    y -= 10
+
+    c.setFont("Helvetica", 10)
+    draw(f"Start Time: {st.session_state.viva_start_time}")
+    draw(f"End Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    draw(f"Total Questions Asked: {st.session_state.question_count}")
+    draw(f"Viva End Reason: {st.session_state.viva_end_reason}")
+    y -= 20
+
+    c.setFont("Helvetica-Bold", 11)
+    draw("Viva Transcript")
+    y -= 10
+    c.setFont("Helvetica", 10)
+
+    for msg in st.session_state.messages:
+        role = "Student" if msg["role"] == "user" else "Examiner"
+        for line in f"{role}: {msg['content']}".split("\n"):
+            draw(line)
+
+    c.save()
+    buffer.seek(0)
+    return buffer
+
+# -------------------------------
+# 4. Streamlit App
+# -------------------------------
+EXAMINER_PASSWORD = "exam123"
 
 def main():
     st.set_page_config(page_title="AIVivaXaminer", page_icon=":computer:")
     st.title(":computer: AIVivaXaminer")
 
-    # -------------------------------
-    # Initialize persistent session state
-    # -------------------------------
     defaults = {
         "examiner_logged_in": False,
         "messages": [],
         "question_count": 0,
         "viva_active": True,
-        "max_questions": 10
+        "max_questions": 10,
+        "viva_start_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "viva_end_reason": None,
+        "generated_report": None,
+        "generated_pdf": None
     }
 
-    for key, value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
+    for k, v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
 
     # -------------------------------
-    # Examiner Authentication / Log out
+    # Examiner Login
     # -------------------------------
     if st.session_state.examiner_logged_in:
         st.sidebar.success("Examiner logged in")
         if st.sidebar.button("Log out"):
             st.session_state.examiner_logged_in = False
-            st.sidebar.info("Logged out. Control panel hidden, session preserved.")
     else:
-        password = st.sidebar.text_input("Examiner Password", type="password")
-        if password and password == EXAMINER_PASSWORD:
+        pwd = st.sidebar.text_input("Examiner Password", type="password")
+        if pwd and pwd == EXAMINER_PASSWORD:
             st.session_state.examiner_logged_in = True
-            st.sidebar.success("Examiner authenticated. Control panel unlocked.")
-        elif password:
-            st.sidebar.error("Incorrect password!")
 
     # -------------------------------
-    # Examiner Control Panel (Sidebar)
+    # Examiner Control Panel
     # -------------------------------
     if st.session_state.examiner_logged_in:
         st.sidebar.header("Examiner Control Panel")
-
-        # Max questions
         st.session_state.max_questions = st.sidebar.number_input(
             "Max questions", min_value=1, value=st.session_state.max_questions
         )
-
-        # Manual override: Force Stop
-        st.sidebar.markdown("**Manual Override**")
-        force_stop = st.sidebar.button("Force Stop Viva")
-        if force_stop:
+        if st.sidebar.button("Force Stop Viva"):
             st.session_state.viva_active = False
-            st.warning("Viva forcibly stopped by examiner.")
+            st.session_state.viva_end_reason = "Force stopped by examiner"
 
     # -------------------------------
-    # Display chat messages
+    # Display chat history
     # -------------------------------
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
 
-    # Stop if viva inactive
     if not st.session_state.viva_active:
-        st.info("Viva session has ended. Thank you!")
-        return
+        st.info("Viva session has ended.")
 
-    # Accept user input
-    if user_input := st.chat_input("Enter your reserach title to start (or type 'end viva' to finish):"):
-        if user_input.strip().lower() == "end viva":
-            st.session_state.viva_active = False
-            st.success("Viva session ended by the student.")
-            return
+    # -------------------------------
+    # Chat input
+    # -------------------------------
+    if st.session_state.viva_active:
+        if user_input := st.chat_input("Enter your research title or response (type 'end viva' to finish):"):
+            if user_input.lower() == "end viva":
+                st.session_state.viva_active = False
+                st.session_state.viva_end_reason = "Ended by student"
+            else:
+                with st.chat_message("user"):
+                    st.markdown(user_input)
+                st.session_state.messages.append({"role": "user", "content": user_input})
 
-        # Add user message
-        with st.chat_message("user"):
-            st.markdown(user_input)
-        st.session_state.messages.append({"role": "user", "content": user_input})
+                with st.chat_message("assistant"):
+                    placeholder = st.empty()
+                    response = generate_response(user_input)
+                    full = ""
+                    for w in response.split():
+                        full += w + " "
+                        time.sleep(0.04)
+                        placeholder.markdown(full + "▌")
+                    placeholder.markdown(full)
 
-        # Generate assistant response
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            full_response = ""
-            assistant_response = generate_response(user_input)
-            for chunk in assistant_response.split():
-                full_response += chunk + " "
-                time.sleep(0.05)
-                message_placeholder.markdown(full_response + "▌")
-            message_placeholder.markdown(full_response)
-        st.session_state.messages.append({"role": "assistant", "content": full_response})
+                st.session_state.messages.append({"role": "assistant", "content": full})
+                st.session_state.question_count += 1
 
-        # Increment question count and check max
-        st.session_state.question_count += 1
-        if st.session_state.question_count >= st.session_state.max_questions:
-            st.session_state.viva_active = False
-            st.warning("Maximum number of questions reached. Viva session ended.")
+                if st.session_state.question_count >= st.session_state.max_questions:
+                    st.session_state.viva_active = False
+                    st.session_state.viva_end_reason = "Maximum questions reached"
 
-if __name__ == '__main__':
+    # -------------------------------
+    # MAIN PANEL – VIVA REPORT EXPORT
+    # -------------------------------
+    st.markdown("---")
+    st.markdown("## 📄 Viva Report Export")
+
+    col1, col2, col3 = st.columns([1, 1, 2])
+
+    with col1:
+        if st.button("Generate TXT Report"):
+            st.session_state.generated_report = generate_viva_report()
+
+    with col2:
+        if st.button("Generate PDF Report"):
+            st.session_state.generated_pdf = generate_viva_pdf()
+
+    with col3:
+        if st.session_state.generated_report:
+            st.download_button(
+                "⬇ Download TXT",
+                st.session_state.generated_report,
+                "viva_report.txt",
+                "text/plain"
+            )
+        if st.session_state.generated_pdf:
+            st.download_button(
+                "⬇ Download PDF",
+                st.session_state.generated_pdf,
+                "viva_report.pdf",
+                "application/pdf"
+            )
+
+if __name__ == "__main__":
     main()
-
-
