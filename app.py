@@ -62,37 +62,25 @@ chain = LLMChain(llm=llm, prompt=prompt)
 def generate_response(message):
     best_practice = retrieve_info(message)
     return chain.run(message=message, best_practice=best_practice)
-
-# ─────────────────────────────────────────────
-# PDF GENERATION
-# ─────────────────────────────────────────────
-def generate_viva_pdf(questions, responses, averages, overall, recommendation):
+    
+def generate_pdf(messages):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
-    elements = []
+    story = []
 
-    elements.append(Paragraph("AIVivaXaminer – Final Viva Report", styles["Title"]))
-    elements.append(Spacer(1, 12))
-    elements.append(Paragraph(f"<b>Overall Score:</b> {overall}", styles["Normal"]))
-    elements.append(Paragraph(f"<b>Final Recommendation:</b> {recommendation}", styles["Normal"]))
-    elements.append(Spacer(1, 12))
+    story.append(Paragraph("<b>AIVivaXaminer – Viva Transcript</b>", styles["Title"]))
+    story.append(Spacer(1, 12))
 
-    elements.append(Paragraph("<b>Dimension Averages</b>", styles["Heading2"]))
-    for k, v in averages.items():
-        elements.append(Paragraph(f"{k}: {v}", styles["Normal"]))
+    for msg in messages:
+        role = "Student" if msg["role"] == "user" else "Examiner"
+        content = msg["content"].replace("\n", "<br/>")
+        story.append(Paragraph(f"<b>{role}:</b> {content}", styles["Normal"]))
+        story.append(Spacer(1, 8))
 
-    elements.append(Spacer(1, 12))
-    elements.append(Paragraph("<b>Viva Questions & Responses</b>", styles["Heading2"]))
-
-    for i, (q, r) in enumerate(zip(questions, responses), 1):
-        elements.append(Spacer(1, 8))
-        elements.append(Paragraph(f"<b>Q{i}:</b> {q}", styles["Normal"]))
-        elements.append(Paragraph(f"<b>Response:</b> {r}", styles["Normal"]))
-
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    doc = SimpleDocTemplate(tmp.name, pagesize=A4)
-    doc.build(elements)
-    return tmp.name
-
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
 # -------------------------------
 # 4. Streamlit app
 # -------------------------------
@@ -161,7 +149,17 @@ def main():
     # Stop if viva inactive
     if not st.session_state.viva_active:
         st.info("Viva session has ended. Thank you!")
+    
+        pdf_file = generate_pdf(st.session_state.messages)
+    
+        st.download_button(
+            label="📄 Download Viva Transcript (PDF)",
+            data=pdf_file,
+            file_name="AIVivaXaminer_Transcript.pdf",
+            mime="application/pdf"
+        )
         return
+
 
     # Accept user input
     if user_input := st.chat_input("Enter your reserach title to start (or type 'end viva' to finish):"):
@@ -192,18 +190,6 @@ def main():
         if st.session_state.question_count >= st.session_state.max_questions:
             st.session_state.viva_active = False
             st.warning("Maximum number of questions reached. Viva session ended.")
-
-    if st.session_state.viva_completed:
-        averages, overall, rec = compute_final_result(st.session_state.scores)
-        pdf = generate_viva_pdf(
-            st.session_state.question_history,
-            st.session_state.student_responses,
-            averages, overall, rec
-        )
-        st.markdown(f"### 🧾 Final Recommendation: **{rec}**")
-        with open(pdf, "rb") as f:
-            st.download_button("📄 Download Viva Report (PDF)", f, "AIViva_Report.pdf")
-        st.stop()
 
 if __name__ == '__main__':
     main()
