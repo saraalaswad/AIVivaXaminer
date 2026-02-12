@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # -------------------------------
-# 1. Vectorstore caching for performance
+# 1. Cache vectorstore
 # -------------------------------
 @st.cache_resource
 def load_vectorstore():
@@ -26,7 +26,7 @@ def load_vectorstore():
 db = load_vectorstore()
 
 # -------------------------------
-# 2. Similarity search function
+# 2. Similarity search
 # -------------------------------
 def retrieve_info(query, k=3):
     try:
@@ -37,29 +37,22 @@ def retrieve_info(query, k=3):
         return []
 
 # -------------------------------
-# 3. LLM & prompt setup
+# 3. LLM & prompt
 # -------------------------------
 llm = ChatOpenAI(temperature=0.7, model="gpt-4-turbo")
 
 template = """
 You are an experienced academic professor conducting a viva for an undergraduate student. 
-Your goal is to evaluate the student’s understanding by asking questions one at a time, then discussing their answer with constructive feedback.
+Ask one question at a time with brief guidance. Avoid repeating questions.
+Align style and logic with provided best practices.
 
 You have been provided:
 • The student’s message: {message}
-• Best practices for responding: {best_practice}
+• Best practices: {best_practice}
+• Conversation history: {history}
+• Question category focus: {categories}
 
-Instructions:
-1. Ask one question at a time, wait for the student’s full answer before moving on.
-2. Avoid repeating questions.
-3. Maintain a supportive but challenging tone.
-4. Align style and logic with best practices.
-5. Focus on selected question categories: {categories}
-
-Conversation History:
-{history}
-
-Generate the next viva question along with brief guidance to the student.
+Generate the next viva question with guidance.
 """
 
 prompt = PromptTemplate(
@@ -74,17 +67,15 @@ def generate_response(message, history="", categories="General", k=3):
     return chain.run(message=message, best_practice=best_practice, history=history, categories=categories)
 
 # -------------------------------
-# 4. Streamlit app
+# 4. Streamlit App
 # -------------------------------
-EXAMINER_PASSWORD = os.getenv("EXAMINER_PASSWORD", "exam123")  # fallback
+EXAMINER_PASSWORD = os.getenv("EXAMINER_PASSWORD", "exam123")
 
 def main():
     st.set_page_config(page_title="AIVivaXaminer", page_icon=":computer:")
     st.title(":computer: AIVivaXaminer")
 
-    # -------------------------------
-    # Initialize session state
-    # -------------------------------
+    # Session state defaults
     defaults = {
         "examiner_logged_in": False,
         "messages": [],
@@ -95,14 +86,11 @@ def main():
         "question_category": "General",
         "similarity_k": 3
     }
-
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
 
-    # -------------------------------
     # Examiner Authentication
-    # -------------------------------
     if st.session_state.examiner_logged_in:
         st.sidebar.success("Examiner logged in")
         if st.sidebar.button("Log out"):
@@ -117,9 +105,7 @@ def main():
             else:
                 st.sidebar.error("Incorrect password!")
 
-    # -------------------------------
     # Examiner Control Panel
-    # -------------------------------
     if st.session_state.examiner_logged_in:
         st.sidebar.header("Examiner Control Panel")
 
@@ -128,7 +114,7 @@ def main():
         )
 
         st.session_state.similarity_k = st.sidebar.number_input(
-            "Number of best practice examples to retrieve", min_value=1, value=st.session_state.similarity_k
+            "Number of best practice examples", min_value=1, value=st.session_state.similarity_k
         )
 
         st.session_state.question_category = st.sidebar.selectbox(
@@ -140,33 +126,33 @@ def main():
             st.session_state.viva_active = False
             st.warning("Viva forcibly stopped by examiner.")
 
-    # -------------------------------
-    # Display chat messages
-    # -------------------------------
+    # Display messages with role-colored chat bubbles
     for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+        role = message["role"]
+        if role == "user":
+            with st.chat_message("user", avatar="🧑"):
+                st.markdown(f"<span style='color:blue'>{message['content']}</span>", unsafe_allow_html=True)
+        else:
+            with st.chat_message("assistant", avatar="👩‍🏫"):
+                st.markdown(f"<span style='color:green'>{message['content']}</span>", unsafe_allow_html=True)
 
-    # Stop if viva inactive
     if not st.session_state.viva_active:
         st.info("Viva session has ended. Thank you!")
         return
 
-    # -------------------------------
     # Accept user input
-    # -------------------------------
-    if user_input := st.chat_input("Enter your research title to start (or type 'end viva' to finish):"):
+    if user_input := st.chat_input("Enter your research title to start (or 'end viva')"):
         if user_input.strip().lower() == "end viva":
             st.session_state.viva_active = False
             st.success("Viva session ended by the student.")
             return
 
-        # Append user message
+        # Append student message
         st.session_state.messages.append({"role": "user", "content": user_input})
-        with st.chat_message("user"):
-            st.markdown(user_input)
+        with st.chat_message("user", avatar="🧑"):
+            st.markdown(f"<span style='color:blue'>{user_input}</span>", unsafe_allow_html=True)
 
-        # Generate assistant response with context
+        # Generate assistant response
         conversation_history = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages])
         try:
             assistant_response = generate_response(
@@ -179,28 +165,29 @@ def main():
             st.error(f"Error generating response: {e}")
             assistant_response = "An error occurred. Please try again."
 
-        # Stream response in chunks
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
+        # Streaming simulation (sentence by sentence)
+        with st.chat_message("assistant", avatar="👩‍🏫") as message_placeholder:
             full_response = ""
-            chunks = re.findall(r'.{1,80}(?:\s|$)', assistant_response)
-            for chunk in chunks:
-                full_response += chunk
-                message_placeholder.markdown(full_response + "▌")
-                time.sleep(0.05)
-            message_placeholder.markdown(full_response)
+            sentences = re.findall(r'.*?[.!?]\s', assistant_response)
+            if not sentences:
+                sentences = [assistant_response]
+            for sentence in sentences:
+                full_response += sentence
+                message_placeholder.markdown(f"<span style='color:green'>{full_response}▌</span>", unsafe_allow_html=True)
+                time.sleep(0.2)
+            message_placeholder.markdown(f"<span style='color:green'>{full_response}</span>", unsafe_allow_html=True)
+
         st.session_state.messages.append({"role": "assistant", "content": full_response})
 
-        # Track question count and prevent repeats
+        # Increment question count & progress
         st.session_state.question_count += 1
-        if st.session_state.question_count >= st.session_state.max_questions:
-            st.session_state.viva_active = False
-            st.warning("Maximum number of questions reached. Viva session ended.")
-
-        # Display progress bar
         st.progress(min(st.session_state.question_count / st.session_state.max_questions, 1.0))
 
-        # Option to export transcript
+        if st.session_state.question_count >= st.session_state.max_questions:
+            st.session_state.viva_active = False
+            st.warning("Maximum questions reached. Viva ended.")
+
+        # Export transcript
         transcript_df = pd.DataFrame(st.session_state.messages)
         st.download_button(
             "Export Viva Transcript",
