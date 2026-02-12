@@ -103,9 +103,7 @@ def main():
     st.set_page_config(page_title="AIVivaXaminer", page_icon=":computer:")
     st.title(":computer: AIVivaXaminer")
 
-    # -------------------------------
     # Initialize session state
-    # -------------------------------
     defaults = {
         "examiner_logged_in": False,
         "messages": [],
@@ -138,27 +136,25 @@ def main():
     # -------------------------------
     if st.session_state.examiner_logged_in:
         st.sidebar.header("Examiner Control Panel")
-
         st.session_state.max_questions = st.sidebar.number_input(
             "Max questions", min_value=1, value=st.session_state.max_questions
         )
-
         if st.sidebar.button("Force Stop Viva"):
             st.session_state.viva_active = False
             st.warning("Viva forcibly stopped by examiner.")
 
     # -------------------------------
-    # Display chat
+    # Display chat messages
     # -------------------------------
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
     # -------------------------------
-    # ✅ Viva ended → show PDF export
+    # ✅ If viva ended, show PDF export
     # -------------------------------
     if not st.session_state.viva_active:
-        st.info("Viva session has ended.")
+        st.info("Viva session has ended. You can download the transcript below.")
 
         pdf_file = generate_pdf(st.session_state.messages)
 
@@ -168,6 +164,8 @@ def main():
             file_name="AIVivaXaminer_Transcript.pdf",
             mime="application/pdf"
         )
+
+        # Stop the rest of the app (no chat input)
         return
 
     # -------------------------------
@@ -179,6 +177,7 @@ def main():
         if user_input.strip().lower() == "end viva":
             st.session_state.viva_active = False
             st.success("Viva session ended by the student.")
+            st.experimental_rerun()  # force re-render to show PDF
             return
 
         with st.chat_message("user"):
@@ -196,7 +195,6 @@ def main():
                 full_response += chunk + " "
                 time.sleep(0.05)
                 message_placeholder.markdown(full_response + "▌")
-
             message_placeholder.markdown(full_response)
 
         st.session_state.messages.append(
@@ -207,6 +205,9 @@ def main():
         if st.session_state.question_count >= st.session_state.max_questions:
             st.session_state.viva_active = False
             st.warning("Maximum number of questions reached. Viva session ended.")
+            st.experimental_rerun()  # force re-render to show PDF
+
 
 if __name__ == "__main__":
     main()
+
