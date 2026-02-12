@@ -134,7 +134,7 @@ def main():
         return
 
     # Accept user input
-    if user_input := st.chat_input("Your response (or type 'end viva' to finish):"):
+    if user_input := st.chat_input("Enter your reserach title to start (or type 'end viva' to finish):"):
         if user_input.strip().lower() == "end viva":
             st.session_state.viva_active = False
             st.success("Viva session ended by the student.")
@@ -165,4 +165,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
