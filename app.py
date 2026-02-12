@@ -1,19 +1,12 @@
 import streamlit as st
 import time
-from io import BytesIO
-from dotenv import load_dotenv
-
 from langchain.document_loaders.csv_loader import CSVLoader
 from langchain.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.prompts import PromptTemplate
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import LLMChain
-
-# ✅ PDF generation
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -70,40 +63,49 @@ def generate_response(message):
     best_practice = retrieve_info(message)
     return chain.run(message=message, best_practice=best_practice)
 
-# -------------------------------
-# ✅ PDF generation helper
-# -------------------------------
-def generate_pdf(messages):
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
+
+# ─────────────────────────────────────────────
+# PDF GENERATION
+# ─────────────────────────────────────────────
+def generate_viva_pdf(questions, responses, averages, overall, recommendation):
     styles = getSampleStyleSheet()
-    story = []
+    elements = []
 
-    story.append(Paragraph("<b>AIVivaXaminer – Viva Transcript</b>", styles["Title"]))
-    story.append(Spacer(1, 12))
+    elements.append(Paragraph("AIVivaXaminer – Final Viva Report", styles["Title"]))
+    elements.append(Spacer(1, 12))
+    elements.append(Paragraph(f"<b>Overall Score:</b> {overall}", styles["Normal"]))
+    elements.append(Paragraph(f"<b>Final Recommendation:</b> {recommendation}", styles["Normal"]))
+    elements.append(Spacer(1, 12))
 
-    for msg in messages:
-        role = "Student" if msg["role"] == "user" else "Examiner"
-        content = msg["content"].replace("\n", "<br/>")
-        story.append(
-            Paragraph(f"<b>{role}:</b> {content}", styles["Normal"])
-        )
-        story.append(Spacer(1, 8))
+    elements.append(Paragraph("<b>Dimension Averages</b>", styles["Heading2"]))
+    for k, v in averages.items():
+        elements.append(Paragraph(f"{k}: {v}", styles["Normal"]))
 
-    doc.build(story)
-    buffer.seek(0)
-    return buffer
+    elements.append(Spacer(1, 12))
+    elements.append(Paragraph("<b>Viva Questions & Responses</b>", styles["Heading2"]))
+
+    for i, (q, r) in enumerate(zip(questions, responses), 1):
+        elements.append(Spacer(1, 8))
+        elements.append(Paragraph(f"<b>Q{i}:</b> {q}", styles["Normal"]))
+        elements.append(Paragraph(f"<b>Response:</b> {r}", styles["Normal"]))
+
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+    doc = SimpleDocTemplate(tmp.name, pagesize=A4)
+    doc.build(elements)
+    return tmp.name
 
 # -------------------------------
 # 4. Streamlit app
 # -------------------------------
-EXAMINER_PASSWORD = "exam123"
+EXAMINER_PASSWORD = "exam123"  # <-- change this to a secure password
 
 def main():
     st.set_page_config(page_title="AIVivaXaminer", page_icon=":computer:")
     st.title(":computer: AIVivaXaminer")
 
-    # Initialize session state
+    # -------------------------------
+    # Initialize persistent session state
+    # -------------------------------
     defaults = {
         "examiner_logged_in": False,
         "messages": [],
@@ -117,29 +119,36 @@ def main():
             st.session_state[key] = value
 
     # -------------------------------
-    # Examiner Authentication
+    # Examiner Authentication / Log out
     # -------------------------------
     if st.session_state.examiner_logged_in:
         st.sidebar.success("Examiner logged in")
         if st.sidebar.button("Log out"):
             st.session_state.examiner_logged_in = False
+            st.sidebar.info("Logged out. Control panel hidden, session preserved.")
     else:
         password = st.sidebar.text_input("Examiner Password", type="password")
         if password and password == EXAMINER_PASSWORD:
             st.session_state.examiner_logged_in = True
-            st.sidebar.success("Authenticated")
+            st.sidebar.success("Examiner authenticated. Control panel unlocked.")
         elif password:
-            st.sidebar.error("Incorrect password")
+            st.sidebar.error("Incorrect password!")
 
     # -------------------------------
-    # Examiner Control Panel
+    # Examiner Control Panel (Sidebar)
     # -------------------------------
     if st.session_state.examiner_logged_in:
         st.sidebar.header("Examiner Control Panel")
+
+        # Max questions
         st.session_state.max_questions = st.sidebar.number_input(
             "Max questions", min_value=1, value=st.session_state.max_questions
         )
-        if st.sidebar.button("Force Stop Viva"):
+
+        # Manual override: Force Stop
+        st.sidebar.markdown("**Manual Override**")
+        force_stop = st.sidebar.button("Force Stop Viva")
+        if force_stop:
             st.session_state.viva_active = False
             st.warning("Viva forcibly stopped by examiner.")
 
@@ -150,64 +159,54 @@ def main():
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # -------------------------------
-    # ✅ If viva ended, show PDF export
-    # -------------------------------
+    # Stop if viva inactive
     if not st.session_state.viva_active:
-        st.info("Viva session has ended. You can download the transcript below.")
-
-        pdf_file = generate_pdf(st.session_state.messages)
-
-        st.download_button(
-            label="📄 Download Viva Transcript (PDF)",
-            data=pdf_file,
-            file_name="AIVivaXaminer_Transcript.pdf",
-            mime="application/pdf"
-        )
-
-        # Stop the rest of the app (no chat input)
+        st.info("Viva session has ended. Thank you!")
         return
 
-    # -------------------------------
-    # Chat input
-    # -------------------------------
-    if user_input := st.chat_input(
-        "Enter your research title to start (or type 'end viva' to finish):"
-    ):
+    # Accept user input
+    if user_input := st.chat_input("Enter your reserach title to start (or type 'end viva' to finish):"):
         if user_input.strip().lower() == "end viva":
             st.session_state.viva_active = False
             st.success("Viva session ended by the student.")
-            st.experimental_rerun()  # force re-render to show PDF
             return
 
+        # Add user message
         with st.chat_message("user"):
             st.markdown(user_input)
-        st.session_state.messages.append(
-            {"role": "user", "content": user_input}
-        )
+        st.session_state.messages.append({"role": "user", "content": user_input})
 
+        # Generate assistant response
         with st.chat_message("assistant"):
             message_placeholder = st.empty()
             full_response = ""
             assistant_response = generate_response(user_input)
-
             for chunk in assistant_response.split():
                 full_response += chunk + " "
                 time.sleep(0.05)
                 message_placeholder.markdown(full_response + "▌")
             message_placeholder.markdown(full_response)
+        st.session_state.messages.append({"role": "assistant", "content": full_response})
 
-        st.session_state.messages.append(
-            {"role": "assistant", "content": full_response}
-        )
-
+        # Increment question count and check max
         st.session_state.question_count += 1
         if st.session_state.question_count >= st.session_state.max_questions:
             st.session_state.viva_active = False
             st.warning("Maximum number of questions reached. Viva session ended.")
-            st.experimental_rerun()  # force re-render to show PDF
+            
+# Final PDF if viva completed
+    if st.session_state.viva_completed:
+        averages, overall, rec = compute_final_result(st.session_state.scores)
+        pdf = generate_viva_pdf(st.session_state.question_history,
+                                st.session_state.student_responses,
+                                averages, overall, rec)
+        st.markdown(f"### 🧾 Final Recommendation: **{rec}**")
+        with open(pdf,"rb") as f:
+            st.download_button("📄 Download Viva Report", f, "AIViva_Report.pdf")
+        st.stop()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
+
 
