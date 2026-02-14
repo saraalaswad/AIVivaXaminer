@@ -166,7 +166,7 @@ def main():
             st.session_state[key] = value
 
     # --------------------------------------------------
-    # Examiner authentication (optional)
+    # Examiner authentication (OPTIONAL)
     # --------------------------------------------------
     if st.session_state.examiner_logged_in:
         st.sidebar.success("Examiner logged in")
@@ -184,15 +184,17 @@ def main():
             st.sidebar.error("Incorrect password")
 
     # --------------------------------------------------
-    # Examiner control panel (optional)
+    # Examiner control panel (OPTIONAL)
     # --------------------------------------------------
     if st.session_state.examiner_logged_in:
         st.sidebar.header("Examiner Control Panel")
+
         st.session_state.max_questions = st.sidebar.number_input(
             "Max questions",
             min_value=1,
             value=st.session_state.max_questions
         )
+
         if st.sidebar.button("Force Stop Viva"):
             st.session_state.viva_active = False
             st.session_state.viva_completed = True
@@ -208,7 +210,7 @@ def main():
     # --------------------------------------------------
     # Viva ended message
     # --------------------------------------------------
-    if not st.session_state.viva_active and st.session_state.viva_completed:
+    if not st.session_state.viva_active:
         st.info("Viva session has ended.")
 
     # --------------------------------------------------
@@ -220,43 +222,46 @@ def main():
         )
 
         if user_input:
-            with st.chat_message("user"):
-                st.markdown(user_input)
-
-            # Always append student answer first
-            st.session_state.messages.append({"role": "user", "content": user_input})
-
-            # If student types "end viva", stop immediately
             if user_input.strip().lower() == "end viva":
                 st.session_state.viva_active = False
                 st.session_state.viva_completed = True
                 st.success("Viva session ended by the student.")
                 return
 
-            # Increment question count
-            st.session_state.question_count += 1
+            with st.chat_message("user"):
+                st.markdown(user_input)
 
-            # Generate assistant response only if not exceeded max_questions
-            if st.session_state.question_count <= st.session_state.max_questions:
-                with st.chat_message("assistant"):
-                    placeholder = st.empty()
-                    response = generate_response(user_input)
-                    animated = ""
-                    for word in response.split():
-                        animated += word + " "
-                        time.sleep(0.04)
-                        placeholder.markdown(animated + "▌")
-                    placeholder.markdown(animated)
-                st.session_state.messages.append({"role": "assistant", "content": animated})
+            st.session_state.messages.append(
+                {"role": "user", "content": user_input}
+            )
 
-            # Check if max questions reached AFTER appending last answer
+            with st.chat_message("assistant"):
+                placeholder = st.empty()
+                response = generate_response(user_input)
+                animated = ""
+
+                for word in response.split():
+                    animated += word + " "
+                    time.sleep(0.04)
+                    placeholder.markdown(animated + "▌")
+
+                placeholder.markdown(animated)
+
+            st.session_state.messages.append(
+                {"role": "assistant", "content": animated}
+            )
+
+
             if st.session_state.question_count >= st.session_state.max_questions:
                 st.session_state.viva_active = False
                 st.session_state.viva_completed = True
-                st.warning("Maximum number of questions reached. Viva ended after student answered the last question.")
+                st.warning("Maximum number of questions reached. Viva ended.")
+            
+            
+            st.session_state.question_count += 1
 
     # --------------------------------------------------
-    # FINAL VIVA REPORT (CHAT PANEL – POST COMPLETION)
+    # FINAL VIVA REPORT (CHAT PANEL – NO LOGIN REQUIRED)
     # --------------------------------------------------
     if st.session_state.viva_completed:
         st.markdown("---")
@@ -264,6 +269,7 @@ def main():
 
         if st.button("Generate Final Viva Report (PDF)"):
             pdf_path = generate_viva_pdf(st.session_state.messages)
+
             with open(pdf_path, "rb") as f:
                 st.download_button(
                     label="⬇️ Download Final Viva Report",
