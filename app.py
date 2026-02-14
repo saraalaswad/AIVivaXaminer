@@ -208,14 +208,6 @@ def main():
             st.markdown(msg["content"])
 
     # --------------------------------------------------
-    # Viva ended message
-    # --------------------------------------------------
-    if not st.session_state.viva_active:
-        st.info("Viva session has ended.")
-
-    
-    
-    # --------------------------------------------------
     # Chat input
     # --------------------------------------------------
     if st.session_state.viva_active:
@@ -227,7 +219,7 @@ def main():
             user_input = st.chat_input(
                 "Enter your research title / response (or type 'end viva')"
             )
-    
+
             if user_input:
                 if user_input.strip().lower() == "end viva":
                     st.session_state.viva_active = False
@@ -242,56 +234,21 @@ def main():
                     # Display student message immediately
                     with st.chat_message("user"):
                         st.markdown(user_input)
-    
+
                     # Generate assistant response
                     response = generate_response(user_input)
                     animated = ""
-    
+
                     # Append a placeholder assistant message first
                     st.session_state.messages.append(
                         {"role": "assistant", "content": ""}
                     )
                     placeholder_index = len(st.session_state.messages) - 1
-    
+
                     with st.chat_message("assistant"):
                         placeholder = st.empty()
                         for word in response.split():
                             animated += word + " "
                             time.sleep(0.04)
                             placeholder.markdown(animated + "▌")
-                        placeholder.markdown(animated)
-    
-                    # Update the session state with the full assistant response
-                    st.session_state.messages[placeholder_index]["content"] = animated
-    
-                    # Increment question count
-                    st.session_state.question_count += 1
-    
-
-            
-            
-            
-
-    # --------------------------------------------------
-    # FINAL VIVA REPORT (CHAT PANEL – NO LOGIN REQUIRED)
-    # --------------------------------------------------
-    if st.session_state.viva_completed:
-        st.markdown("---")
-        st.subheader("📄 Final Viva Report")
-
-        if st.button("Generate Final Viva Report (PDF)"):
-            pdf_path = generate_viva_pdf(st.session_state.messages)
-
-            with open(pdf_path, "rb") as f:
-                st.download_button(
-                    label="⬇️ Download Final Viva Report",
-                    data=f,
-                    file_name="Final_Viva_Report.pdf",
-                    mime="application/pdf"
-                )
-
-if __name__ == "__main__":
-    main()
-
-
-
+                        placeholder.markdown
