@@ -217,46 +217,50 @@ def main():
     # Chat input
     # --------------------------------------------------
     if st.session_state.viva_active:
-        user_input = st.chat_input(
-            "Enter your research title to start (or type 'end viva')"
-        )
-
-        if user_input:
-            if user_input.strip().lower() == "end viva":
-                st.session_state.viva_active = False
-                st.session_state.viva_completed = True
-                st.success("Viva session ended by the student.")
-                return
-
-            with st.chat_message("user"):
-                st.markdown(user_input)
-
-            st.session_state.messages.append(
-                {"role": "user", "content": user_input}
+        # Check if max questions reached BEFORE accepting input
+        if st.session_state.question_count >= st.session_state.max_questions:
+            st.session_state.viva_active = False
+            st.session_state.viva_completed = True
+            st.warning("Maximum number of questions reached. Viva ended.")
+        else:
+            user_input = st.chat_input(
+                "Enter your research title / response (or type 'end viva')"
             )
+    
+            if user_input:
+                # Handle student ending the viva
+                if user_input.strip().lower() == "end viva":
+                    st.session_state.viva_active = False
+                    st.session_state.viva_completed = True
+                    st.success("Viva session ended by the student.")
+                else:
+                    # Display student input
+                    with st.chat_message("user"):
+                        st.markdown(user_input)
+                    st.session_state.messages.append(
+                        {"role": "user", "content": user_input}
+                    )
+    
+                    # Generate assistant response
+                    with st.chat_message("assistant"):
+                        placeholder = st.empty()
+                        response = generate_response(user_input)
+                        animated = ""
+    
+                        # Smooth typing effect
+                        for word in response.split():
+                            animated += word + " "
+                            time.sleep(0.04)
+                            placeholder.markdown(animated + "▌")
+                        placeholder.markdown(animated)
+    
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": animated}
+                    )
+    
+                    # Increment question count AFTER student input + assistant response
+                    st.session_state.question_count += 1
 
-            with st.chat_message("assistant"):
-                placeholder = st.empty()
-                response = generate_response(user_input)
-                animated = ""
-
-                for word in response.split():
-                    animated += word + " "
-                    time.sleep(0.04)
-                    placeholder.markdown(animated + "▌")
-
-                placeholder.markdown(animated)
-
-            st.session_state.messages.append(
-                {"role": "assistant", "content": animated}
-            )
-
-            st.session_state.question_count += 1
-            
-            if st.session_state.question_count >= st.session_state.max_questions+1:
-                st.session_state.viva_active = False
-                st.session_state.viva_completed = True
-                st.warning("Maximum number of questions reached. Viva ended.")
             
             
             
@@ -281,4 +285,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
