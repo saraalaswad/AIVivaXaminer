@@ -80,7 +80,8 @@ def main():
         "messages": [],
         "question_count": 0,
         "viva_active": True,
-        "max_questions": 10
+        "max_questions": 10,
+        "viva_completed": False   # ✅ NEW
     }
 
     for key, value in defaults.items():
@@ -163,7 +164,41 @@ def main():
             st.session_state.viva_active = False
             st.warning("Maximum number of questions reached. Viva session ended.")
 
+    if user_input.strip().lower() == "end viva":
+        st.session_state.viva_active = False
+        st.session_state.viva_completed = True   # ✅
+        st.success("Viva session ended by the student.")
+        return
+    
+    if force_stop:
+        st.session_state.viva_active = False
+        st.session_state.viva_completed = True   # ✅
+        st.warning("Viva forcibly stopped by examiner.")
+        
+    if st.session_state.question_count >= st.session_state.max_questions:
+        st.session_state.viva_active = False
+        st.session_state.viva_completed = True   # ✅
+        st.warning("Maximum number of questions reached. Viva session ended.")
+        
+    if (
+        st.session_state.examiner_logged_in
+        and st.session_state.viva_completed
+    ):
+        st.sidebar.markdown("### 📄 Final Viva Report")
+    
+        if st.sidebar.button("Generate Viva PDF Report"):
+            pdf_path = generate_viva_pdf(st.session_state.messages)
+            with open(pdf_path, "rb") as f:
+                st.sidebar.download_button(
+                    label="⬇️ Download Final Viva Report (PDF)",
+                    data=f,
+                    file_name="Final_Viva_Report.pdf",
+                    mime="application/pdf"
+                )
+
+
 if __name__ == '__main__':
     main()
+
 
 
