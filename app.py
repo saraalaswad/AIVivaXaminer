@@ -1,51 +1,65 @@
 import streamlit as st
 import time
+from datetime import datetime
+from dotenv import load_dotenv
+
 from langchain.document_loaders.csv_loader import CSVLoader
 from langchain.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.prompts import PromptTemplate
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import LLMChain
-from dotenv import load_dotenv
-from fpdf import FPDF
-from datetime import datetime
+
+# ReportLab
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.units import inch
 
 load_dotenv()
 
-# -------------------------------
-# 1. Vectorise the student-teacher response csv data
-# -------------------------------
+# --------------------------------------------------
+# 1. Vectorise CSV best-practice data
+# --------------------------------------------------
 loader = CSVLoader(file_path="ts_response.csv")
 documents = loader.load()
+
 embeddings = OpenAIEmbeddings()
 db = FAISS.from_documents(documents, embeddings)
 
-# -------------------------------
-# 2. Function for similarity search
-# -------------------------------
+# --------------------------------------------------
+# 2. Similarity search
+# --------------------------------------------------
 def retrieve_info(query):
-    similar_response = db.similarity_search(query, k=3)
-    return [doc.page_content for doc in similar_response]
+    docs = db.similarity_search(query, k=3)
+    return [doc.page_content for doc in docs]
 
-# -------------------------------
-# 3. Setup LLMChain & prompts
-# -------------------------------
-llm = ChatOpenAI(temperature=0.7, model="gpt-4-turbo")
+# --------------------------------------------------
+# 3. LLM & Prompt
+# --------------------------------------------------
+llm = ChatOpenAI(
+    temperature=0.7,
+    model="gpt-4-turbo"
+)
 
 template = """
-You are an experienced academic professor conducting a viva for an undergraduate student. Your goal is to evaluate the student’s understanding of their research project by asking questions one at a time, then discussing their answer with constructive feedback.
-You have been provided:
-• The student’s message: {message}
-• Best practices for responding: {best_practice}
+You are an experienced academic professor conducting a viva for an undergraduate student.
 
-Your instructions:
-1. Ask questions designed to probe the student’s knowledge of concepts, methodology, findings, problem-solving, and critical thinking.
-2. Maintain a supportive but challenging tone.
-3. Follow the style and logic of the best practices.
-4. Ask only one question at a time.
-5. Do not repeat questions.
+Student input:
+{message}
 
-Task: Generate the next viva question with brief guidance.
+Best practices:
+{best_practice}
+
+Instructions:
+- Ask ONE question at a time.
+- Probe understanding, methodology, findings, and critical thinking.
+- Maintain a professional academic tone.
+- Do NOT repeat questions.
+
+Task:
+Generate the next viva question with brief guidance.
 """
 
 prompt = PromptTemplate(
@@ -57,79 +71,121 @@ chain = LLMChain(llm=llm, prompt=prompt)
 
 def generate_response(message):
     best_practice = retrieve_info(message)
-    return chain.run(message=message, best_practice=best_practice)
+    return chain.run(
+        message=message,
+        best_practice=best_practice
+    )
 
-# -------------------------------
-# 4. Final Viva PDF Generator
-# -------------------------------
+# --------------------------------------------------
+# 4. ReportLab PDF Generator
+# --------------------------------------------------
 def generate_viva_pdf(messages):
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.add_page()
+    file_path = "Final_Viva_Report.pdf"
 
-    pdf.set_font("Arial", "B", 14)
-    pdf.cell(0, 10, "Final Viva Report", ln=True)
+    doc = SimpleDocTemplate(
+        file_path,
+        pagesize=A4,
+        rightMargin=40,
+        leftMargin=40,
+        topMargin=40,
+        bottomMargin=40
+    )
 
-    pdf.set_font("Arial", size=11)
-    pdf.cell(0, 8, f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}", ln=True)
-    pdf.ln(5)
+    styles = getSampleStyleSheet()
+
+    styles.add(
+        ParagraphStyle(
+            name="RoleStyle",
+            fontName="Helvetica-Bold",
+            fontSize=11,
+            leading=14,
+            spaceBefore=12,
+            spaceAfter=4,
+            alignment=TA_LEFT
+        )
+    )
+
+    styles.add(
+        ParagraphStyle(
+            name="ContentStyle",
+            fontSize=11,
+            leading=14,
+            spaceAfter=8,
+            alignment=TA_LEFT
+        )
+    )
+
+    story = []
+
+    story.append(Paragraph("<b>Final Viva Report</b>", styles["Title"]))
+    story.append(Spacer(1, 0.3 * inch))
+
+    story.append(
+        Paragraph(
+            f"<b>Date:</b> {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            styles["Normal"]
+        )
+    )
+    story.append(Spacer(1, 0.3 * inch))
 
     for msg in messages:
         role = "Student" if msg["role"] == "user" else "Examiner"
-        pdf.set_font("Arial", "B", 11)
-        pdf.cell(0, 8, f"{role}:", ln=True)
+        story.append(Paragraph(role, styles["RoleStyle"]))
+        story.append(Paragraph(msg["content"], styles["ContentStyle"]))
 
-        pdf.set_font("Arial", size=11)
-        pdf.multi_cell(0, 8, msg["content"])
-        pdf.ln(2)
-
-    file_path = "Final_Viva_Report.pdf"
-    pdf.output(file_path)
+    doc.build(story)
     return file_path
 
-# -------------------------------
+# --------------------------------------------------
 # 5. Streamlit App
-# -------------------------------
+# --------------------------------------------------
 EXAMINER_PASSWORD = "exam123"
 
 def main():
-    st.set_page_config(page_title="AIVivaXaminer", page_icon=":computer:")
-    st.title(":computer: AIVivaXaminer")
+    st.set_page_config(
+        page_title="AIVivaXaminer",
+        page_icon="🎓"
+    )
 
-    # -------------------------------
-    # Session State Defaults
-    # -------------------------------
+    st.title("🎓 AIVivaXaminer")
+
+    # --------------------------------------------------
+    # Session state defaults
+    # --------------------------------------------------
     defaults = {
         "examiner_logged_in": False,
         "messages": [],
         "question_count": 0,
         "viva_active": True,
-        "max_questions": 10,
-        "viva_completed": False
+        "viva_completed": False,
+        "max_questions": 10
     }
 
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
 
-    # -------------------------------
-    # Examiner Authentication
-    # -------------------------------
+    # --------------------------------------------------
+    # Examiner authentication (SIDEBAR)
+    # --------------------------------------------------
     if st.session_state.examiner_logged_in:
         st.sidebar.success("Examiner logged in")
         if st.sidebar.button("Log out"):
             st.session_state.examiner_logged_in = False
     else:
-        password = st.sidebar.text_input("Examiner Password", type="password")
+        password = st.sidebar.text_input(
+            "Examiner Password",
+            type="password"
+        )
         if password and password == EXAMINER_PASSWORD:
             st.session_state.examiner_logged_in = True
-            st.sidebar.success("Examiner authenticated.")
+            st.sidebar.success("Authentication successful")
         elif password:
-            st.sidebar.error("Incorrect password!")
+            st.sidebar.error("Incorrect password")
 
-    # -------------------------------
-    # Examiner Control Panel
-    # -------------------------------
+    # --------------------------------------------------
+    # Examiner control panel (SIDEBAR)
+    # --------------------------------------------------
     if st.session_state.examiner_logged_in:
         st.sidebar.header("Examiner Control Panel")
 
@@ -144,21 +200,28 @@ def main():
             st.session_state.viva_completed = True
             st.warning("Viva forcibly stopped by examiner.")
 
-    # -------------------------------
-    # Display Chat History
-    # -------------------------------
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    # --------------------------------------------------
+    # Display chat history
+    # --------------------------------------------------
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
 
+    # --------------------------------------------------
+    # Viva ended message
+    # --------------------------------------------------
     if not st.session_state.viva_active:
         st.info("Viva session has ended.")
 
-    # -------------------------------
-    # Chat Input
-    # -------------------------------
+    # --------------------------------------------------
+    # Chat input
+    # --------------------------------------------------
     if st.session_state.viva_active:
-        if user_input := st.chat_input("Enter your research title to start (or type 'end viva'):"):
+        user_input = st.chat_input(
+            "Enter your research title to start (or type 'end viva')"
+        )
+
+        if user_input:
             if user_input.strip().lower() == "end viva":
                 st.session_state.viva_active = False
                 st.session_state.viva_completed = True
@@ -167,40 +230,50 @@ def main():
 
             with st.chat_message("user"):
                 st.markdown(user_input)
-            st.session_state.messages.append({"role": "user", "content": user_input})
+
+            st.session_state.messages.append(
+                {"role": "user", "content": user_input}
+            )
 
             with st.chat_message("assistant"):
                 placeholder = st.empty()
                 response = generate_response(user_input)
                 animated = ""
+
                 for word in response.split():
                     animated += word + " "
                     time.sleep(0.04)
                     placeholder.markdown(animated + "▌")
+
                 placeholder.markdown(animated)
 
-            st.session_state.messages.append({"role": "assistant", "content": animated})
+            st.session_state.messages.append(
+                {"role": "assistant", "content": animated}
+            )
 
             st.session_state.question_count += 1
+
             if st.session_state.question_count >= st.session_state.max_questions:
                 st.session_state.viva_active = False
                 st.session_state.viva_completed = True
                 st.warning("Maximum number of questions reached. Viva ended.")
 
-    # -------------------------------
-    # Final Viva PDF Export (POST-COMPLETION ONLY)
-    # -------------------------------
+    # --------------------------------------------------
+    # FINAL VIVA REPORT (CHAT PANEL – POST COMPLETION)
+    # --------------------------------------------------
     if (
-        st.session_state.examiner_logged_in
-        and st.session_state.viva_completed
+        st.session_state.viva_completed
+        and st.session_state.examiner_logged_in
     ):
-        st.sidebar.markdown("### 📄 Final Viva Report")
+        st.markdown("---")
+        st.subheader("📄 Final Viva Report")
 
-        if st.sidebar.button("Generate Viva PDF Report"):
+        if st.button("Generate Final Viva Report (PDF)"):
             pdf_path = generate_viva_pdf(st.session_state.messages)
+
             with open(pdf_path, "rb") as f:
-                st.sidebar.download_button(
-                    label="⬇️ Download Final Viva Report (PDF)",
+                st.download_button(
+                    label="⬇️ Download Final Viva Report",
                     data=f,
                     file_name="Final_Viva_Report.pdf",
                     mime="application/pdf"
