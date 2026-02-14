@@ -169,7 +169,7 @@ def main():
             st.session_state[key] = value
 
     # --------------------------------------------------
-    # Examiner authentication (OPTIONAL)
+    # Examiner authentication (optional)
     # --------------------------------------------------
     if st.session_state.examiner_logged_in:
         st.sidebar.success("Examiner logged in")
@@ -187,7 +187,7 @@ def main():
             st.sidebar.error("Incorrect password")
 
     # --------------------------------------------------
-    # Examiner control panel (OPTIONAL)
+    # Examiner control panel (optional)
     # --------------------------------------------------
     if st.session_state.examiner_logged_in:
         st.sidebar.header("Examiner Control Panel")
@@ -213,7 +213,7 @@ def main():
     # --------------------------------------------------
     # Viva ended message
     # --------------------------------------------------
-    if not st.session_state.viva_active:
+    if not st.session_state.viva_active and st.session_state.viva_completed:
         st.info("Viva session has ended.")
 
     # --------------------------------------------------
@@ -238,31 +238,38 @@ def main():
                 {"role": "user", "content": user_input}
             )
 
-            with st.chat_message("assistant"):
-                placeholder = st.empty()
-                response = generate_response(user_input)
-                animated = ""
+            # --------------------------------------------------
+            # Generate next question only if not exceeded max_questions
+            # --------------------------------------------------
+            if st.session_state.question_count < st.session_state.max_questions:
+                with st.chat_message("assistant"):
+                    placeholder = st.empty()
+                    response = generate_response(user_input)
+                    animated = ""
+                    for word in response.split():
+                        animated += word + " "
+                        time.sleep(0.04)
+                        placeholder.markdown(animated + "▌")
+                    placeholder.markdown(animated)
+                st.session_state.messages.append(
+                    {"role": "assistant", "content": animated}
+                )
 
-                for word in response.split():
-                    animated += word + " "
-                    time.sleep(0.04)
-                    placeholder.markdown(animated + "▌")
-
-                placeholder.markdown(animated)
-
-            st.session_state.messages.append(
-                {"role": "assistant", "content": animated}
-            )
-
+            # --------------------------------------------------
+            # Increment question count
+            # --------------------------------------------------
             st.session_state.question_count += 1
 
+            # --------------------------------------------------
+            # If max reached, stop after this student answer
+            # --------------------------------------------------
             if st.session_state.question_count >= st.session_state.max_questions:
                 st.session_state.viva_active = False
                 st.session_state.viva_completed = True
-                st.warning("Maximum number of questions reached. Viva ended.")
+                st.warning("Maximum number of questions reached. Viva ended after student answered last question.")
 
     # --------------------------------------------------
-    # FINAL VIVA REPORT (CHAT PANEL – NO LOGIN REQUIRED)
+    # FINAL VIVA REPORT (CHAT PANEL – POST COMPLETION)
     # --------------------------------------------------
     if st.session_state.viva_completed:
         st.markdown("---")
@@ -270,7 +277,6 @@ def main():
 
         if st.button("Generate Final Viva Report (PDF)"):
             pdf_path = generate_viva_pdf(st.session_state.messages)
-
             with open(pdf_path, "rb") as f:
                 st.download_button(
                     label="⬇️ Download Final Viva Report",
