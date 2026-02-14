@@ -213,11 +213,12 @@ def main():
     if not st.session_state.viva_active:
         st.info("Viva session has ended.")
 
+    
+    
     # --------------------------------------------------
     # Chat input
     # --------------------------------------------------
     if st.session_state.viva_active:
-        # Check if max questions reached BEFORE accepting input
         if st.session_state.question_count >= st.session_state.max_questions:
             st.session_state.viva_active = False
             st.session_state.viva_completed = True
@@ -228,38 +229,44 @@ def main():
             )
     
             if user_input:
-                # Handle student ending the viva
                 if user_input.strip().lower() == "end viva":
                     st.session_state.viva_active = False
                     st.session_state.viva_completed = True
                     st.success("Viva session ended by the student.")
                 else:
-                    # Display student input
-                    with st.chat_message("user"):
-                        st.markdown(user_input)
+                    # Append student message first
                     st.session_state.messages.append(
                         {"role": "user", "content": user_input}
                     )
+                    
+                    # Display student message immediately
+                    with st.chat_message("user"):
+                        st.markdown(user_input)
     
                     # Generate assistant response
+                    response = generate_response(user_input)
+                    animated = ""
+    
+                    # Append a placeholder assistant message first
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": ""}
+                    )
+                    placeholder_index = len(st.session_state.messages) - 1
+    
                     with st.chat_message("assistant"):
                         placeholder = st.empty()
-                        response = generate_response(user_input)
-                        animated = ""
-    
-                        # Smooth typing effect
                         for word in response.split():
                             animated += word + " "
                             time.sleep(0.04)
                             placeholder.markdown(animated + "▌")
                         placeholder.markdown(animated)
     
-                    st.session_state.messages.append(
-                        {"role": "assistant", "content": animated}
-                    )
+                    # Update the session state with the full assistant response
+                    st.session_state.messages[placeholder_index]["content"] = animated
     
-                    # Increment question count AFTER student input + assistant response
+                    # Increment question count
                     st.session_state.question_count += 1
+    
 
             
             
@@ -285,5 +292,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
