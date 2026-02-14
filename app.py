@@ -251,14 +251,15 @@ def main():
                 {"role": "assistant", "content": animated}
             )
 
-
-            if st.session_state.question_count >= st.session_state.max_questions:
+            st.session_state.question_count += 1
+            
+            if st.session_state.question_count >= st.session_state.max_questions+1:
                 st.session_state.viva_active = False
                 st.session_state.viva_completed = True
                 st.warning("Maximum number of questions reached. Viva ended.")
             
             
-            st.session_state.question_count += 1
+            
 
     # --------------------------------------------------
     # FINAL VIVA REPORT (CHAT PANEL – NO LOGIN REQUIRED)
@@ -280,3 +281,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
