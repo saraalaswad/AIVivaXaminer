@@ -251,4 +251,31 @@ def main():
                             animated += word + " "
                             time.sleep(0.04)
                             placeholder.markdown(animated + "▌")
-                        placeholder.markdown
+                        placeholder.markdown(animated)
+
+                    # Update the session state with the full assistant response
+                    st.session_state.messages[placeholder_index]["content"] = animated
+
+                    # Increment question count
+                    st.session_state.question_count += 1
+
+    # --------------------------------------------------
+    # FINAL VIVA REPORT (CHAT PANEL – NO LOGIN REQUIRED)
+    # --------------------------------------------------
+    if st.session_state.viva_completed:
+        st.markdown("---")
+        st.subheader("📄 Final Viva Report")
+
+        if st.button("Generate Final Viva Report (PDF)"):
+            pdf_path = generate_viva_pdf(st.session_state.messages)
+
+            with open(pdf_path, "rb") as f:
+                st.download_button(
+                    label="⬇️ Download Final Viva Report",
+                    data=f,
+                    file_name="Final_Viva_Report.pdf",
+                    mime="application/pdf"
+                )
+
+if __name__ == "__main__":
+    main()
