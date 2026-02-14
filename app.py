@@ -44,25 +44,22 @@ llm = ChatOpenAI(
 )
 
 template = """
-You are an experienced academic professor conducting a viva for an undergraduate student. Your goal is to evaluate the student’s understanding of their research project by asking questions one at a time, then discussing their answer with constructive feedback.
-You have been provided:
-•	The student’s message: {message}
-•	Best practices for responding: {best_practice}
-Your instructions:
-1.	Ask questions designed to probe the student’s knowledge of concepts, methodology, findings, problem-solving, and critical thinking.
-2.	Maintain a supportive but challenging tone, helping the student articulate and defend their ideas.
-3.	Follow the style, tone, length, and logic of the best practices provided.
-4.	Ask only one question at a time; wait for the student’s full answer before moving on.
-5.	Do not repeat questions.
-6.	If some best practices are irrelevant, mimic their style and approach in your response.
-Question Categories (choose as appropriate for the student’s project):
-•	General: project overview, motivation, challenges, validation, tools/technologies
-•	Technical: system architecture, data security, algorithms, database design, data flow
-•	Problem-Solving/Critical Thinking: lessons learned, scalability, comparison with other solutions, performance optimization
-•	Domain-Specific: web/AI/ML/network considerations
-•	Future Scope: enhancements, real-world application, deployment challenges, tech evolution
-Task: Using {message} and {best_practice}, generate the first viva question along with brief guidance to the student. Keep it clear, professional, and aligned with best practices.
+You are an experienced academic professor conducting a viva for an undergraduate student.
 
+Student input:
+{message}
+
+Best practices:
+{best_practice}
+
+Instructions:
+- Ask ONE question at a time.
+- Probe understanding, methodology, findings, and critical thinking.
+- Maintain a professional academic tone.
+- Do NOT repeat questions.
+
+Task:
+Generate the next viva question with brief guidance.
 """
 
 prompt = PromptTemplate(
@@ -191,13 +188,11 @@ def main():
     # --------------------------------------------------
     if st.session_state.examiner_logged_in:
         st.sidebar.header("Examiner Control Panel")
-
         st.session_state.max_questions = st.sidebar.number_input(
             "Max questions",
             min_value=1,
             value=st.session_state.max_questions
         )
-
         if st.sidebar.button("Force Stop Viva"):
             st.session_state.viva_active = False
             st.session_state.viva_completed = True
@@ -225,23 +220,24 @@ def main():
         )
 
         if user_input:
+            with st.chat_message("user"):
+                st.markdown(user_input)
+
+            # Always append student answer first
+            st.session_state.messages.append({"role": "user", "content": user_input})
+
+            # If student types "end viva", stop immediately
             if user_input.strip().lower() == "end viva":
                 st.session_state.viva_active = False
                 st.session_state.viva_completed = True
                 st.success("Viva session ended by the student.")
                 return
 
-            with st.chat_message("user"):
-                st.markdown(user_input)
+            # Increment question count
+            st.session_state.question_count += 1
 
-            st.session_state.messages.append(
-                {"role": "user", "content": user_input}
-            )
-
-            # --------------------------------------------------
-            # Generate next question only if not exceeded max_questions
-            # --------------------------------------------------
-            if st.session_state.question_count < st.session_state.max_questions:
+            # Generate assistant response only if not exceeded max_questions
+            if st.session_state.question_count <= st.session_state.max_questions:
                 with st.chat_message("assistant"):
                     placeholder = st.empty()
                     response = generate_response(user_input)
@@ -251,22 +247,13 @@ def main():
                         time.sleep(0.04)
                         placeholder.markdown(animated + "▌")
                     placeholder.markdown(animated)
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": animated}
-                )
+                st.session_state.messages.append({"role": "assistant", "content": animated})
 
-            # --------------------------------------------------
-            # Increment question count
-            # --------------------------------------------------
-            st.session_state.question_count += 1
-
-            # --------------------------------------------------
-            # If max reached, stop after this student answer
-            # --------------------------------------------------
+            # Check if max questions reached AFTER appending last answer
             if st.session_state.question_count >= st.session_state.max_questions:
                 st.session_state.viva_active = False
                 st.session_state.viva_completed = True
-                st.warning("Maximum number of questions reached. Viva ended after student answered last question.")
+                st.warning("Maximum number of questions reached. Viva ended after student answered the last question.")
 
     # --------------------------------------------------
     # FINAL VIVA REPORT (CHAT PANEL – POST COMPLETION)
