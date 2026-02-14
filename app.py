@@ -211,53 +211,52 @@ def main():
     # Chat input
     # --------------------------------------------------
     if st.session_state.viva_active:
-        if st.session_state.question_count >= st.session_state.max_questions:
-            st.session_state.viva_active = False
-            st.session_state.viva_completed = True
-            st.warning("Maximum number of questions reached. Viva ended.")
-        else:
-            user_input = st.chat_input(
-                "Enter your research title / response (or type 'end viva')"
-            )
+        user_input = st.chat_input(
+            "Enter your research title / response (or type 'end viva')"
+        )
 
-            if user_input:
-                if user_input.strip().lower() == "end viva":
+        if user_input:
+            if user_input.strip().lower() == "end viva":
+                st.session_state.viva_active = False
+                st.session_state.viva_completed = True
+                st.success("Viva session ended by the student.")
+            else:
+                # Append student message and display immediately
+                st.session_state.messages.append(
+                    {"role": "user", "content": user_input}
+                )
+                with st.chat_message("user"):
+                    st.markdown(user_input)
+
+                # Generate assistant response
+                response = generate_response(user_input)
+                animated = ""
+
+                # Append placeholder for assistant message
+                st.session_state.messages.append(
+                    {"role": "assistant", "content": ""}
+                )
+                placeholder_index = len(st.session_state.messages) - 1
+
+                with st.chat_message("assistant"):
+                    placeholder = st.empty()
+                    for word in response.split():
+                        animated += word + " "
+                        time.sleep(0.04)
+                        placeholder.markdown(animated + "▌")
+                    placeholder.markdown(animated)
+
+                # Update assistant message in session state
+                st.session_state.messages[placeholder_index]["content"] = animated
+
+                # Increment question count AFTER processing
+                st.session_state.question_count += 1
+
+                # Check max questions AFTER last input
+                if st.session_state.question_count >= st.session_state.max_questions:
                     st.session_state.viva_active = False
                     st.session_state.viva_completed = True
-                    st.success("Viva session ended by the student.")
-                else:
-                    # Append student message first
-                    st.session_state.messages.append(
-                        {"role": "user", "content": user_input}
-                    )
-                    
-                    # Display student message immediately
-                    with st.chat_message("user"):
-                        st.markdown(user_input)
-
-                    # Generate assistant response
-                    response = generate_response(user_input)
-                    animated = ""
-
-                    # Append a placeholder assistant message first
-                    st.session_state.messages.append(
-                        {"role": "assistant", "content": ""}
-                    )
-                    placeholder_index = len(st.session_state.messages) - 1
-
-                    with st.chat_message("assistant"):
-                        placeholder = st.empty()
-                        for word in response.split():
-                            animated += word + " "
-                            time.sleep(0.04)
-                            placeholder.markdown(animated + "▌")
-                        placeholder.markdown(animated)
-
-                    # Update the session state with the full assistant response
-                    st.session_state.messages[placeholder_index]["content"] = animated
-
-                    # Increment question count
-                    st.session_state.question_count += 1
+                    st.warning("Maximum number of questions reached. Viva ended.")
 
     # --------------------------------------------------
     # FINAL VIVA REPORT (CHAT PANEL – NO LOGIN REQUIRED)
