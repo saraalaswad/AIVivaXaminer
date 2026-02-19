@@ -164,9 +164,7 @@ def main():
         "answer_count": -1,
         "viva_active": True,
         "viva_completed": False,
-        "max_questions": 10,
-        "pdf_ready": False,
-        "pdf_path": None
+        "max_questions": 10
     }
 
     for key, value in defaults.items():
@@ -275,33 +273,18 @@ def main():
                     st.session_state.viva_completed = True
                     st.warning("Viva completed successfully.")
 
+
     # --------------------------------------------------
     # FINAL VIVA REPORT
     # --------------------------------------------------
     if st.session_state.viva_completed:
-        st.markdown('<div id="pdf-section"></div>', unsafe_allow_html=True)
+        st.markdown("---")
         st.subheader("📄 Final Viva Report")
-    
-        if not st.session_state.pdf_ready:
-            if st.button("Generate Final Viva Report (PDF)"):
-                st.session_state.pdf_path = generate_viva_pdf(
-                    st.session_state.messages
-                )
-                st.session_state.pdf_ready = True
-    
-                # Force scroll to PDF section
-                st.components.v1.html(
-                    """
-                    <script>
-                    document.getElementById("pdf-section")
-                        .scrollIntoView({behavior: "smooth"});
-                    </script>
-                    """,
-                    height=0
-                )
-    
-        if st.session_state.pdf_ready and st.session_state.pdf_path:
-            with open(st.session_state.pdf_path, "rb") as f:
+
+        if st.button("Generate Final Viva Report (PDF)"):
+            pdf_path = generate_viva_pdf(st.session_state.messages)
+
+            with open(pdf_path, "rb") as f:
                 st.download_button(
                     label="⬇️ Download Final Viva Report",
                     data=f,
@@ -309,10 +292,9 @@ def main():
                     mime="application/pdf"
                 )
 
-
-
 if __name__ == "__main__":
     main()
+
 
 
 
