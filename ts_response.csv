@@ -1,55 +1,24 @@
-Response,Student's Message
-"Hi <STUDENT>, hope I didn't get you up too early!","Don't worry, my exam is on next Saturday, so I should get up early."
-"Ah OK, so good practice then...is that an IELTS exam?",Exactly.
-I've lost track of how many you've done,I hope I can do as usual at the real exam.haha
-Do you mean get a score you get in practice tests?,"Yes, I could get 37 of reading yesterday!!"
-Wow that's really good - well done...you've definitely made a lot of progress. And what's your normal score on listening these days?,"Around 30, listening is harder for me."
-OK that's quite common to be better at reading - but 30 is still more than respectable. I guess maybe speaking is the toughest part?,"Yeah, because it's difficult to practice..."
-Yeah sure - I guess what we're doing right now is a weird mixture of speaking and writing....because you're kind of under pressure to reply straight away like in speaking you know?,You're right. I'm trying to reply as soon as possible.
-Yes well don't worry too much - are you doing this one on your phone like you said you might? IS it quicker/easier?,"Yeah, I'm using my phone, it's better than the last time, isn't it??"
-I'd say you're definitely faster yeah - this is me at maximum speed I'm afraid!,It's good for me. haha
-:) Listen <STUDENT> I thought I'd try something a bit more specific if that's OK - so here goes...,
-What’s the connection?  Tokyo/Japan,Do you mean my hometown?
-No I mean: what's the connection between those two words?,"Ah, it's a capital city"
-OK yes! Tell me a sentence can you please?,
-I mean with that exact example.,Tokyo is a capital city in Japan.
-OK thanks - is there another capital city in Japan?,"No, there is only one."
-Ah ok so...Tokyo....?,Tokyo is the capital!!
-You got it! OK another one: What's the connection: Pacific/Everest,Mt.Everest is the highest in the Pacific...?
-OK just tell me about the second one...Mt Everest is....?,the highest mountain in the Pacific??
-Sorry <STUDENT>! I mean write this in a  full sentence: Mt Everest/highest/world,Mt Everest is the highest in the Pacific world.
-,"I'm not sure, sorry."
-That's OK my fault! OK this is what I was thinking of: Mt Everest is the highest mountain in the world. Can you now do a sentence with the ocean (forget about connecting it to Mt Everest!) THanks,Pacific is the widest ocean in the world!!
-OK thanks great! And one more with this keyword: Sahara,Sahara is the largest desert in the world.
-OK thanks <STUDENT>. I wanted to check this area (or part of it at first) for articles! Does that you make you change any of your answers?,"Sure, it's okay."
-I'll give you a clue: if you are talking about oceans/deserts/rivers you need....?,
-the the the the the the the the but only once obviously,I need to put 'the'??
-Yes!,
-"So, do one again with Sahara can you?",The sahara is the largest desert in the world!!
-"Perfect! OK <STUDENT>,can you choose one desert, one river and one ocean and tell me anything you like about each one? THanks",
-Start with just river if you like,The Thames is the most famous river in the UK.
-Thanks great example ..and nice that you know you can just say The Thames if you like and not always the river Thames,
-OK do a ocean/sea or desert OK?,I don't know about desert well...so I'm talking about a ocean.
-OK fine (Sorry by the way it should the River Thames as in River with a capital r !),The Atlantic is known that there is an ocean between Europe and America.
-OK thanks <STUDENT> - correct 'the Atlantic' perfect (I didn't understand the bit about 'is known that ' though I'm afraid!,"Sorry, it was an unnecessary part!!"
-Ok no problem! Listen <STUDENT> can you tell me about any famous places (like buildings) you have visited in the UK - just one sentnce is enough,Brighton is one of the best resort place in Europe.
-OK thanks - yes I remember you said you went there. It's pretty cool right? What did you like about it?,
-And what did you do/where did you go hen you were there?,"I went to also Bournemouth, but Brighton is more attractive for me. Due to the landscape."
-,"I ate some seafood, it was good."
-OK right - I guess you've noticed that seafood is not the most common food for English people to eat! Can you give me an example of a specific place (like a building) you have visited in Cambridge.,
-I mean a well-known place,
-Not like your bathroom or something!,"Sure. It's Kings college, the garden was really beautiful."
-OK yes nice example - a really famous one.What about any museums?,"I like the Fitzwilliam museum, I'm not sure about the spelling"
-No that's correct <STUDENT>! So you said your two examples correctly: The Fitzwilliam and King's College (without 'the') - do you know the (semi) rule?!,I think facilities like museum need to be put 'the'...
-Yes good point! So hotels/theatres/cinemas/museums/galleries etc have 'the' - can you give me another  example of one of these you've been to?,The light cinema is near to my house.
-Ah you live quite centrally - I'm jealous! (sort of) And e.g. King's College/Barclay's (bank)/St Mary's Church do NOT have 'the' - can you see what they have in common?!,"It's owned by someone like King, St Mary and Barclay??"
-Yeah that's it basically! so the 'someone' is the important bit - a name! Can you give me another example of a place like this?,I have no idea except Queen's college...
-No that's fine! Correct example! One final test: where does Donald trump work? The building I mean...,
-It's got the name of a colour in it...and it's not black!,White house.haha
-yes good! But is the colour named after a person or is it just a colour?,
-do you think?,
-it's just a colour so...it's called...?,"Hmmm, the White house!!"
-Yay!,
-OK thank's <STUDENT> -we'll leave it there ok? Good to talk to you again.,"Okay, thank you!!"
-I'll be in touch - feel free to send me an email yourself!,"Sure, see you."
-OK bye...,
+category,examiner_question,ideal_student_answer
+Research Overview,"Can you briefly explain the main aim of your project?","The main aim of my project is to address a specific problem in the field by proposing and evaluating a solution that improves current practices or understanding."
+Research Overview,"Why did you choose this research topic?","I chose this topic because it addresses a relevant problem in my field and aligns with my academic interests and future career goals."
+Research Overview,"What is the key contribution of your work?","The key contribution of my work is providing an implemented solution and evaluation that demonstrates the feasibility and impact of the proposed approach."
+Literature Review,"How does your work relate to existing research?","My work builds upon previous studies by extending their approaches and addressing limitations identified in the literature."
+Literature Review,"What gap in the literature does your project address?","The gap addressed by my project is the lack of practical evaluation and comparison of existing approaches in real-world scenarios."
+Literature Review,"Which source influenced your research the most and why?","One key source influenced my work because it provided a strong theoretical foundation and highlighted limitations that my project aims to overcome."
+Methodology,"Why did you choose this methodology?","I chose this methodology because it is well-suited to the research objectives and allows for systematic evaluation of the proposed solution."
+Methodology,"Were there any alternative methods you considered?","Yes, I considered alternative methods, but they were less suitable due to constraints such as time, data availability, or complexity."
+Methodology,"How did you ensure the validity of your results?","I ensured validity by using consistent procedures, testing under controlled conditions, and comparing results against established benchmarks."
+Results and Analysis,"Can you summarize your main findings?","The main findings show that the proposed solution performs better in key aspects compared to baseline approaches."
+Results and Analysis,"Were there any unexpected results?","Yes, some results differed from initial expectations, which helped highlight limitations and areas for further investigation."
+Results and Analysis,"How do your results answer the research questions?","The results directly address the research questions by demonstrating whether the proposed approach meets the stated objectives."
+Discussion,"What are the main strengths of your project?","The main strengths are the clear problem definition, structured methodology, and practical evaluation of results."
+Discussion,"What are the limitations of your work?","The main limitations include limited data size and scope, which may affect the generalizability of the results."
+Discussion,"How could this work be improved?","The work could be improved by using a larger dataset, refining the methodology, and conducting longer-term evaluations."
+Critical Thinking,"If you were to start again, what would you do differently?","If starting again, I would allocate more time to data collection and early testing to improve the final outcomes."
+Critical Thinking,"How would your approach scale to a larger system?","The approach could scale by optimizing performance, using more efficient algorithms, and deploying on stronger infrastructure."
+Ethics,"Were there any ethical considerations in your project?","Yes, ethical considerations included data privacy, informed consent, and responsible use of technology."
+Ethics,"How did you ensure academic integrity?","I ensured academic integrity by properly citing sources and ensuring the work presented is original."
+AI and Technology,"Why did you use AI in your project?","AI was used because it enables automation and improved performance in tasks that would be difficult to handle manually."
+AI and Technology,"What are the limitations of the AI model you used?","The limitations include dependency on data quality, potential bias, and limited generalization beyond the training data."
+Conclusion,"What is the practical impact of your project?","The practical impact is providing a solution that can be adapted or extended for real-world applications."
+Conclusion,"What future work would you recommend?","Future work includes expanding the dataset, improving the model, and testing in different contexts."
