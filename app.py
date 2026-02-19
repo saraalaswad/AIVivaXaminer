@@ -66,11 +66,10 @@ Instructions:
 4. Maintain a supportive but challenging tone, encouraging the student to articulate, justify, and defend their ideas.
 5. Ask **only one question at a time**, wait for the student’s full answer before moving on, and **avoid repeating questions**.
 6. If retrieved Q&A examples are partially irrelevant, adapt the phrasing and style to match the student’s project context.
-7. Provide a **brief guidance note** with each question, explaining what a strong answer should include.
-8. Across multiple turns, ensure the sequence of questions **systematically rotates through all categories** so that the student is assessed comprehensively.
+7. Across multiple turns, ensure the sequence of questions **systematically rotates through all categories** so that the student is assessed comprehensively.
 
 Task:
-- Using {message} and {retrieved_qa}, generate the **first viva question** along with a **guidance note**.
+- Using {message} and {retrieved_qa}, generate the **first viva question**.
 - Ensure the question is clear, professional, context-aware, and aligned with the style and structure of the ideal answers in the Q&A dataset.
 - Indicate the category of the question at the start.
 
@@ -304,6 +303,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
