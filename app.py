@@ -279,7 +279,7 @@ def main():
     # FINAL VIVA REPORT
     # --------------------------------------------------
     if st.session_state.viva_completed:
-        st.markdown("---")
+        st.markdown('<div id="pdf-section"></div>', unsafe_allow_html=True)
         st.subheader("📄 Final Viva Report")
     
         if not st.session_state.pdf_ready:
@@ -288,7 +288,17 @@ def main():
                     st.session_state.messages
                 )
                 st.session_state.pdf_ready = True
-                st.success("PDF generated successfully ↓")
+    
+                # Force scroll to PDF section
+                st.components.v1.html(
+                    """
+                    <script>
+                    document.getElementById("pdf-section")
+                        .scrollIntoView({behavior: "smooth"});
+                    </script>
+                    """,
+                    height=0
+                )
     
         if st.session_state.pdf_ready and st.session_state.pdf_path:
             with open(st.session_state.pdf_path, "rb") as f:
@@ -300,8 +310,10 @@ def main():
                 )
 
 
+
 if __name__ == "__main__":
     main()
+
 
 
 
