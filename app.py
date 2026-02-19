@@ -75,7 +75,7 @@ Task:
 """
 
 prompt = PromptTemplate(
-    input_variables=["message", "best_practice"],
+    input_variables=["message", "retrieved_qa"],
     template=template
 )
 
@@ -302,6 +302,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
