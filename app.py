@@ -164,7 +164,9 @@ def main():
         "answer_count": -1,
         "viva_active": True,
         "viva_completed": False,
-        "max_questions": 10
+        "max_questions": 10,
+        "pdf_ready": False,
+        "pdf_path": None
     }
 
     for key, value in defaults.items():
@@ -279,11 +281,17 @@ def main():
     if st.session_state.viva_completed:
         st.markdown("---")
         st.subheader("📄 Final Viva Report")
-
-        if st.button("Generate Final Viva Report (PDF)"):
-            pdf_path = generate_viva_pdf(st.session_state.messages)
-
-            with open(pdf_path, "rb") as f:
+    
+        if not st.session_state.pdf_ready:
+            if st.button("Generate Final Viva Report (PDF)"):
+                st.session_state.pdf_path = generate_viva_pdf(
+                    st.session_state.messages
+                )
+                st.session_state.pdf_ready = True
+                st.success("PDF generated successfully ↓")
+    
+        if st.session_state.pdf_ready and st.session_state.pdf_path:
+            with open(st.session_state.pdf_path, "rb") as f:
                 st.download_button(
                     label="⬇️ Download Final Viva Report",
                     data=f,
@@ -291,8 +299,10 @@ def main():
                     mime="application/pdf"
                 )
 
+
 if __name__ == "__main__":
     main()
+
 
 
 
