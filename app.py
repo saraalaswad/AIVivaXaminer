@@ -244,7 +244,7 @@ def main():
                     st.markdown(user_input)
 
                 # Examiner question
-                if (st.session_state.question_count >= st.session_state.max_questions):
+                if (st.session_state.question_count < st.session_state.max_questions):
                     response = generate_response(user_input)
                     animated = ""
     
@@ -293,5 +293,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
