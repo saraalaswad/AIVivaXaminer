@@ -82,10 +82,10 @@ prompt = PromptTemplate(
 chain = LLMChain(llm=llm, prompt=prompt)
 
 def generate_response(message):
-    best_practice = retrieve_info(message)
+    retrieved_qa = retrieve_info(message)
     return chain.run(
         message=message,
-        best_practice=best_practice
+        retrieved_qa=retrieved_qa
     )
 
 # --------------------------------------------------
@@ -302,6 +302,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
