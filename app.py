@@ -44,24 +44,86 @@ llm = ChatOpenAI(
 )
 
 template = """
-You are an experienced academic professor conducting a viva for an undergraduate student. Your goal is to evaluate the student’s understanding of their research project by asking questions one at a time, then discussing their answer with constructive feedback.
-You have been provided:
-•	The student’s message: {message}
-•	Best practices for responding: {best_practice}
-Your instructions:
-1.	Ask questions designed to probe the student’s knowledge of concepts, methodology, findings, problem-solving, and critical thinking.
-2.	Maintain a supportive but challenging tone, helping the student articulate and defend their ideas.
-3.	Follow the style, tone, length, and logic of the best practices provided.
-4.	Ask only one question at a time; wait for the student’s full answer before moving on.
-5.	Do not repeat questions.
-6.	If some best practices are irrelevant, mimic their style and approach in your response.
-Question Categories (choose as appropriate for the student’s project):
-•	General: project overview, motivation, challenges, validation, tools/technologies
-•	Technical: system architecture, data security, algorithms, database design, data flow
-•	Problem-Solving/Critical Thinking: lessons learned, scalability, comparison with other solutions, performance optimization
-•	Domain-Specific: web/AI/ML/network considerations
-•	Future Scope: enhancements, real-world application, deployment challenges, tech evolution
-Task: Using {message} and {best_practice}, generate the first viva question along with brief guidance to the student. Keep it clear, professional, and aligned with best practices.
+You are AIVivaXaminer, an AI-based academic examiner conducting a structured undergraduate viva assessment.
+
+────────────────────────────────────
+RULES
+────────────────────────────────────
+1. Ask ONE question at a time.
+2. Wait for the student’s full response before proceeding.
+3. NEVER repeat a question. Before generating a question, check the list below.
+4. Provide examiner-style qualitative feedback internally only.
+5. Scores are INTERNAL only; NEVER reveal them.
+6. Maintain a professional, academic examiner tone.
+
+────────────────────────────────────
+QUESTION HISTORY
+────────────────────────────────────
+Previously asked questions (update this list after each turn):
+{question_history}
+
+────────────────────────────────────
+QUESTION STRATEGY
+────────────────────────────────────
+- Categories: General Understanding, Technical Depth (if applicable), Critical Thinking, Domain-Specific Inquiry, Future Scope & Application
+- Start from foundational knowledge and progress to higher-order reasoning.
+- Select questions NOT in {question_history}.
+- Avoid asking questions that the student has already answered adequately in prior responses.
+
+────────────────────────────────────
+ASSESSMENT FRAMEWORK (INTERNAL ONLY)
+────────────────────────────────────
+Evaluate each response using these dimensions:
+1. Conceptual Understanding
+2. Methodological Rigor
+3. Technical Depth (if applicable)
+4. Critical Thinking
+5. Communication & Academic Articulation
+
+Scoring scale (internal only):
+0 = Not demonstrated
+1 = Weak
+2 = Adequate
+3 = Good
+4 = Excellent
+
+Use these scores to guide your questioning, but do not reveal them.
+
+────────────────────────────────────
+STOPPING RULES
+────────────────────────────────────
+Terminate the viva when ANY of the following occurs:
+
+1. Minimum category coverage:
+   - ≥2 general understanding questions
+   - ≥2 technical questions (if applicable)
+   - ≥1 critical thinking question
+   - ≥1 future-oriented question
+
+2. Performance stabilization:
+   - Average scores change ≤ ±0.5 across three consecutive questions
+
+3. Knowledge exhaustion:
+   - Two consecutive weak responses (score ≤ 1) in the same dimension
+
+4. Sustained excellence:
+   - Average score ≥ 3.5 for three consecutive questions
+
+5. Maximum question limit:
+   - Undergraduate viva: 8–12 questions
+   - Capstone project: up to 15 questions
+
+6. Two consecutive non-substantive or irrelevant responses
+
+────────────────────────────────────
+OUTPUT RULES
+────────────────────────────────────
+- During viva: output ONLY the next question.
+- After stopping: output ONLY the final evaluation report containing:
+  • Overall performance level
+  • Key strengths
+  • Areas for improvement
+  • Final recommendation (Pass / Pass with Minor Revisions / Borderline / Fail)
 
 """
 
@@ -151,6 +213,7 @@ def main():
     )
 
     st.title("🎓 AIVivaXaminer")
+    st.sidebar.title("Examiner Panel")
 
     # --------------------------------------------------
     # Session state defaults
@@ -159,7 +222,7 @@ def main():
         "examiner_logged_in": False,
         "messages": [],
         "question_count": 0,
-        "answer_count": 0,
+        "answer_count": -1,
         "viva_active": True,
         "viva_completed": False,
         "max_questions": 10
@@ -168,6 +231,48 @@ def main():
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+
+    # --------------------------------------------------
+    # Sidebar: Examiner authentication
+    # --------------------------------------------------
+    if st.session_state.examiner_logged_in:
+        st.sidebar.success("Examiner logged in")
+        if st.sidebar.button("Log out"):
+            st.session_state.examiner_logged_in = False
+    else:
+        password = st.sidebar.text_input(
+            "Examiner Password (optional)",
+            type="password"
+        )
+        if password and password == EXAMINER_PASSWORD:
+            st.session_state.examiner_logged_in = True
+            st.sidebar.success("Authentication successful")
+        elif password:
+            st.sidebar.error("Incorrect password")
+
+    # --------------------------------------------------
+    # Sidebar: Examiner control panel
+    # --------------------------------------------------
+    if st.session_state.examiner_logged_in:
+        st.sidebar.header("Viva Controls")
+
+        st.session_state.max_questions = st.sidebar.number_input(
+            "Max questions",
+            min_value=1,
+            value=st.session_state.max_questions
+        )
+
+        st.sidebar.info(
+            f"""
+            **Questions asked:** {st.session_state.question_count}  
+            **Answers given:** {st.session_state.answer_count}
+            """
+        )
+
+        if st.sidebar.button("Force Stop Viva"):
+            st.session_state.viva_active = False
+            st.session_state.viva_completed = True
+            st.warning("Viva forcibly stopped by examiner.")
 
     # --------------------------------------------------
     # Display chat history
@@ -190,9 +295,7 @@ def main():
                 st.session_state.viva_completed = True
                 st.success("Viva session ended by the student.")
             else:
-                # ------------------------------
                 # Student answer
-                # ------------------------------
                 st.session_state.messages.append(
                     {"role": "user", "content": user_input}
                 )
@@ -201,9 +304,7 @@ def main():
                 with st.chat_message("user"):
                     st.markdown(user_input)
 
-                # ------------------------------
                 # Examiner question
-                # ------------------------------
                 response = generate_response(user_input)
                 animated = ""
 
@@ -223,9 +324,7 @@ def main():
                 st.session_state.messages[placeholder_index]["content"] = animated
                 st.session_state.question_count += 1
 
-                # ------------------------------
-                # END CHECK (AFTER last answer)
-                # ------------------------------
+                # End check AFTER last answer
                 if (
                     st.session_state.question_count >= st.session_state.max_questions
                     and st.session_state.answer_count >= st.session_state.max_questions
