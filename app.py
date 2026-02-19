@@ -55,7 +55,6 @@ Your instructions:
 4.	Ask only one question at a time; wait for the student’s full answer before moving on.
 5.	Do not repeat questions.
 6.	If some best practices are irrelevant, mimic their style and approach in your response.
-7. Output the question only.
 Question Categories (choose as appropriate for the student’s project):
 •	General: project overview, motivation, challenges, validation, tools/technologies
 •	Technical: system architecture, data security, algorithms, database design, data flow
@@ -160,6 +159,7 @@ def main():
         "examiner_logged_in": False,
         "messages": [],
         "question_count": 0,
+        "answer_count": 0,
         "viva_active": True,
         "viva_completed": False,
         "max_questions": 10
@@ -168,41 +168,6 @@ def main():
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
-
-    # --------------------------------------------------
-    # Examiner authentication (OPTIONAL)
-    # --------------------------------------------------
-    if st.session_state.examiner_logged_in:
-        st.sidebar.success("Examiner logged in")
-        if st.sidebar.button("Log out"):
-            st.session_state.examiner_logged_in = False
-    else:
-        password = st.sidebar.text_input(
-            "Examiner Password (optional)",
-            type="password"
-        )
-        if password and password == EXAMINER_PASSWORD:
-            st.session_state.examiner_logged_in = True
-            st.sidebar.success("Authentication successful")
-        elif password:
-            st.sidebar.error("Incorrect password")
-
-    # --------------------------------------------------
-    # Examiner control panel (OPTIONAL)
-    # --------------------------------------------------
-    if st.session_state.examiner_logged_in:
-        st.sidebar.header("Examiner Control Panel")
-
-        st.session_state.max_questions = st.sidebar.number_input(
-            "Max questions",
-            min_value=1,
-            value=st.session_state.max_questions
-        )
-
-        if st.sidebar.button("Force Stop Viva"):
-            st.session_state.viva_active = False
-            st.session_state.viva_completed = True
-            st.warning("Viva forcibly stopped by examiner.")
 
     # --------------------------------------------------
     # Display chat history
@@ -225,18 +190,23 @@ def main():
                 st.session_state.viva_completed = True
                 st.success("Viva session ended by the student.")
             else:
-                # Append student message and display immediately
+                # ------------------------------
+                # Student answer
+                # ------------------------------
                 st.session_state.messages.append(
                     {"role": "user", "content": user_input}
                 )
+                st.session_state.answer_count += 1
+
                 with st.chat_message("user"):
                     st.markdown(user_input)
 
-                # Generate assistant response
+                # ------------------------------
+                # Examiner question
+                # ------------------------------
                 response = generate_response(user_input)
                 animated = ""
 
-                # Append placeholder for assistant message
                 st.session_state.messages.append(
                     {"role": "assistant", "content": ""}
                 )
@@ -250,20 +220,22 @@ def main():
                         placeholder.markdown(animated + "▌")
                     placeholder.markdown(animated)
 
-                # Update assistant message in session state
                 st.session_state.messages[placeholder_index]["content"] = animated
-
-                # Increment question count AFTER processing
                 st.session_state.question_count += 1
 
-                # Check max questions AFTER last input
-                if st.session_state.question_count >= st.session_state.max_questions:
+                # ------------------------------
+                # END CHECK (AFTER last answer)
+                # ------------------------------
+                if (
+                    st.session_state.question_count >= st.session_state.max_questions
+                    and st.session_state.answer_count >= st.session_state.max_questions
+                ):
                     st.session_state.viva_active = False
                     st.session_state.viva_completed = True
-                    st.warning("Maximum number of questions reached. Viva ended.")
+                    st.warning("Viva completed successfully.")
 
     # --------------------------------------------------
-    # FINAL VIVA REPORT (CHAT PANEL – NO LOGIN REQUIRED)
+    # FINAL VIVA REPORT
     # --------------------------------------------------
     if st.session_state.viva_completed:
         st.markdown("---")
@@ -282,4 +254,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
