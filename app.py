@@ -244,24 +244,25 @@ def main():
                     st.markdown(user_input)
 
                 # Examiner question
-                response = generate_response(user_input)
-                animated = ""
-
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": ""}
-                )
-                placeholder_index = len(st.session_state.messages) - 1
-
-                with st.chat_message("assistant"):
-                    placeholder = st.empty()
-                    for word in response.split():
-                        animated += word + " "
-                        time.sleep(0.04)
-                        placeholder.markdown(animated + "▌")
-                    placeholder.markdown(animated)
-
-                st.session_state.messages[placeholder_index]["content"] = animated
-                st.session_state.question_count += 1
+                if (st.session_state.question_count >= st.session_state.max_questions):
+                    response = generate_response(user_input)
+                    animated = ""
+    
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": ""}
+                    )
+                    placeholder_index = len(st.session_state.messages) - 1
+    
+                    with st.chat_message("assistant"):
+                        placeholder = st.empty()
+                        for word in response.split():
+                            animated += word + " "
+                            time.sleep(0.04)
+                            placeholder.markdown(animated + "▌")
+                        placeholder.markdown(animated)
+    
+                    st.session_state.messages[placeholder_index]["content"] = animated
+                    st.session_state.question_count += 1
 
                 # End check AFTER last answer
                 if (
@@ -292,4 +293,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
