@@ -32,8 +32,16 @@ db = FAISS.from_documents(documents, embeddings)
 # 2. Similarity search
 # --------------------------------------------------
 def retrieve_info(query):
-    docs = db.similarity_search(query, k=3)
-    return [doc.page_content for doc in docs]
+    docs = db.similarity_search(query, k=6)
+
+    filtered = []
+    for doc in docs:
+        question = doc.metadata.get("examiner_question", "")
+        if question not in st.session_state.asked_questions:
+            filtered.append(doc.page_content)
+
+    return filtered[:3]
+
 
 # --------------------------------------------------
 # 3. LLM & Prompt
@@ -84,10 +92,19 @@ chain = LLMChain(llm=llm, prompt=prompt)
 
 def generate_response(message):
     retrieved_qa = retrieve_info(message)
-    return chain.run(
+
+    response = chain.run(
         message=message,
         retrieved_qa=retrieved_qa
     )
+
+    # ----------------------------------------------
+    # HARD MEMORY UPDATE (prevents repetition)
+    # ----------------------------------------------
+    st.session_state.asked_questions.add(response)
+
+    return response
+
 
 # --------------------------------------------------
 # 4. ReportLab PDF Generator
@@ -173,12 +190,24 @@ def main():
         "answer_count": -1,
         "viva_active": True,
         "viva_completed": False,
-        "max_questions": 10
+        "max_questions": 10,
+        "asked_questions": set(),
+        "asked_categories": set()
     }
 
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+
+    # --------------------------------------------------
+    # Viva memory (PREVENT REPEATED QUESTIONS)
+    # --------------------------------------------------
+    if "asked_questions" not in st.session_state:
+        st.session_state.asked_questions = set()
+
+    if "asked_categories" not in st.session_state:
+        st.session_state.asked_categories = set()
+
 
     # --------------------------------------------------
     # Sidebar: Examiner authentication
@@ -272,6 +301,9 @@ def main():
     
                     st.session_state.messages[placeholder_index]["content"] = animated
                     st.session_state.question_count += 1
+                    # Track category coverage (lightweight)
+                    st.session_state.asked_categories.add("AUTO")
+
 
                 # End check AFTER last answer
                 if (
@@ -303,3 +335,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
