@@ -22,7 +22,7 @@ load_dotenv()
 # --------------------------------------------------
 # 1. Load & Vectorise CSV Q&A data
 # --------------------------------------------------
-loader = CSVLoader(file_path="viva_student_examiner_qa.csv")
+loader = CSVLoader(file_path="ts_response.csv")
 documents = loader.load()
 
 embeddings = OpenAIEmbeddings()
@@ -230,3 +230,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
