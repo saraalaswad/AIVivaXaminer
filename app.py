@@ -32,15 +32,32 @@ db = FAISS.from_documents(documents, embeddings)
 # 2. Similarity search
 # --------------------------------------------------
 def retrieve_info(query):
-    docs = db.similarity_search(query, k=6)
+    docs = db.similarity_search(query, k=8)
+
+    target_category = st.session_state.category_order[
+        st.session_state.current_category_index
+    ]
 
     filtered = []
     for doc in docs:
         question = doc.metadata.get("examiner_question", "")
-        if question not in st.session_state.asked_questions:
+        category = doc.metadata.get("category", "")
+
+        if (
+            question not in st.session_state.asked_questions
+            and category == target_category
+        ):
             filtered.append(doc.page_content)
 
+    # Fallback: if no question found in target category
+    if not filtered:
+        for doc in docs:
+            question = doc.metadata.get("examiner_question", "")
+            if question not in st.session_state.asked_questions:
+                filtered.append(doc.page_content)
+
     return filtered[:3]
+
 
 
 # --------------------------------------------------
@@ -201,6 +218,21 @@ def main():
     if "asked_categories" not in st.session_state:
         st.session_state.asked_categories = set()
 
+    # --------------------------------------------------
+    # Category rotation state
+    # --------------------------------------------------
+    if "category_order" not in st.session_state:
+        st.session_state.category_order = [
+            "General",
+            "Technical",
+            "Problem-Solving / Critical Thinking",
+            "Domain-Specific",
+            "Ethics / Professionalism",
+            "Future Scope"
+        ]
+
+    if "current_category_index" not in st.session_state:
+        st.session_state.current_category_index = 0
 
 
     # --------------------------------------------------
@@ -295,6 +327,11 @@ def main():
     
                     st.session_state.messages[placeholder_index]["content"] = animated
                     st.session_state.question_count += 1
+                    # Advance category rotation
+                    st.session_state.current_category_index += 1
+                    if st.session_state.current_category_index >= len(st.session_state.category_order):
+                        st.session_state.current_category_index = 0
+
                     # Track category coverage (lightweight)
                     st.session_state.asked_categories.add("AUTO")
 
@@ -329,6 +366,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
