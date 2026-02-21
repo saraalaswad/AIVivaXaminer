@@ -295,8 +295,8 @@ def main():
     
                     st.session_state.messages[placeholder_index]["content"] = animated
                     st.session_state.question_count += 1
-                # Track category coverage (lightweight)
-                st.session_state.asked_categories.add("AUTO")
+                    # Track category coverage (lightweight)
+                    st.session_state.asked_categories.add("AUTO")
 
 
                 # End check AFTER last answer
@@ -329,6 +329,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
