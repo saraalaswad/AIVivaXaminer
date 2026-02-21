@@ -52,34 +52,26 @@ llm = ChatOpenAI(
 )
 
 template = """
-You are an experienced academic professor conducting a viva for an undergraduate student. Your task is to simulate a viva assessment by asking **one question at a time** and providing brief guidance for the student.
+You are an experienced academic professor conducting a viva for an undergraduate student.
 
 You have been provided:
-- The student’s input: {message}
-- Relevant Q&A examples retrieved from the CSV dataset: {retrieved_qa}
+- Student input: {message}
+- Retrieved Q&A examples (none of which have been previously asked): {retrieved_qa}
+- Categories already covered: {asked_categories}
 
 Instructions:
-1. The retrieved Q&A examples include:
-   - category
-   - examiner_question
-   - ideal_student_answer
-2. Use these examples to guide your questioning style, tone, and logic. Adapt questions to the student’s project and knowledge level.
-3. Ask questions **covering all categories** across the session:
-   - General: project overview, motivation, challenges, validation, tools/technologies
-   - Technical: system architecture, algorithms, data security, database design, data flow
-   - Problem-Solving / Critical Thinking: lessons learned, scalability, comparison with alternatives, performance optimization
-   - Domain-Specific: AI/ML, web, networking, or other field-specific considerations
-   - Ethics / Professionalism: ethical considerations, academic integrity
-   - Future Scope: enhancements, real-world application, deployment challenges, technology evolution
-4. Maintain a supportive but challenging tone, encouraging the student to articulate, justify, and defend their ideas.
-5. Ask **only one question at a time**, wait for the student’s full answer before moving on, and **avoid repeating questions**.
-6. If retrieved Q&A examples are partially irrelevant, adapt the phrasing and style to match the student’s project context.
-7. Across multiple turns, ensure the sequence of questions **systematically rotates through all categories** so that the student is assessed comprehensively.
+1. Select ONE question from the retrieved Q&A that has not been asked before.
+2. Prefer a category that has not yet been covered in this viva.
+3. Ask exactly ONE question.
+4. Do NOT repeat or paraphrase any previously asked question.
+5. Maintain a supportive but academically rigorous tone.
+6. Provide a brief guidance note explaining what a strong answer should include.
 
-Task:
-- Using {message} and {retrieved_qa}, generate the **first viva question**.
-- Ensure the question is clear, professional, context-aware, and aligned with the style and structure of the ideal answers in the Q&A dataset.
-- Indicate the category of the question at the start.
+Output format:
+Category:
+Question:
+Guidance:
+
 
 """
 
@@ -199,14 +191,14 @@ def main():
         if key not in st.session_state:
             st.session_state[key] = value
 
-            # --------------------------------------------------
-            # Viva memory (PREVENT REPEATED QUESTIONS)
-            # --------------------------------------------------
-            if "asked_questions" not in st.session_state:
-                st.session_state.asked_questions = set()
+    # --------------------------------------------------
+    # Viva memory (PREVENT REPEATED QUESTIONS)
+    # --------------------------------------------------
+    if "asked_questions" not in st.session_state:
+        st.session_state.asked_questions = set()
         
-            if "asked_categories" not in st.session_state:
-                st.session_state.asked_categories = set()
+    if "asked_categories" not in st.session_state:
+        st.session_state.asked_categories = set()
 
 
     # --------------------------------------------------
@@ -335,5 +327,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
