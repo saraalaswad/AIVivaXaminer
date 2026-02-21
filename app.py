@@ -199,14 +199,14 @@ def main():
         if key not in st.session_state:
             st.session_state[key] = value
 
-    # --------------------------------------------------
-    # Viva memory (PREVENT REPEATED QUESTIONS)
-    # --------------------------------------------------
-    if "asked_questions" not in st.session_state:
-        st.session_state.asked_questions = set()
-
-    if "asked_categories" not in st.session_state:
-        st.session_state.asked_categories = set()
+            # --------------------------------------------------
+            # Viva memory (PREVENT REPEATED QUESTIONS)
+            # --------------------------------------------------
+            if "asked_questions" not in st.session_state:
+                st.session_state.asked_questions = set()
+        
+            if "asked_categories" not in st.session_state:
+                st.session_state.asked_categories = set()
 
 
     # --------------------------------------------------
@@ -335,4 +335,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
