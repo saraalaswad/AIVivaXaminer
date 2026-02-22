@@ -107,15 +107,22 @@ prompt = PromptTemplate(
 
 chain = LLMChain(llm=llm, prompt=prompt)
 
-def decide_question_mode(student_answer):
-    length = len(student_answer.split())
+# --------------------------------------------------
+# Viva flow helper (question depth control)
+# --------------------------------------------------
+def decide_question_mode(student_answer: str) -> str:
+    if not student_answer:
+        return "PROBE"
 
-    if length < 20:
-        return "CLARIFY"     # student is weak → help
-    elif length < 60:
-        return "PROBE"       # normal
+    word_count = len(student_answer.split())
+
+    if word_count < 20:
+        return "CLARIFY"      # weak / short answer
+    elif word_count < 60:
+        return "PROBE"        # normal answer
     else:
-        return "DEEPEN"      # strong answer → challenge
+        return "DEEPEN"       # strong answer
+
 
 
 
@@ -259,21 +266,7 @@ def main():
     if "current_category_index" not in st.session_state:
         st.session_state.current_category_index = 0
 
-    if question_mode == "DEEPEN":
-        st.session_state.followup_depth += 1
-    else:
-        st.session_state.followup_depth = 0
 
-    if st.session_state.followup_depth >= 2:
-        st.session_state.viva_phase = "REDIRECTING"
-
-    if st.session_state.viva_phase in ["REDIRECTING", "CLOSING"]:
-        advance_category()
-
-    def advance_category():
-        st.session_state.current_category_index += 1
-        if st.session_state.current_category_index >= len(st.session_state.category_order):
-            st.session_state.current_category_index = 0
 
 
     # --------------------------------------------------
@@ -378,6 +371,22 @@ def main():
                     st.session_state.asked_categories.add("AUTO")
 
 
+                    if question_mode == "DEEPEN":
+                        st.session_state.followup_depth += 1
+                    else:
+                        st.session_state.followup_depth = 0
+                
+                    if st.session_state.followup_depth >= 2:
+                        st.session_state.viva_phase = "REDIRECTING"
+                
+                    if st.session_state.viva_phase in ["REDIRECTING", "CLOSING"]:
+                        advance_category()
+                
+                    def advance_category():
+                        st.session_state.current_category_index += 1
+                        if st.session_state.current_category_index >= len(st.session_state.category_order):
+                            st.session_state.current_category_index = 0
+
                 # End check AFTER last answer
                 if (
                     st.session_state.question_count >= st.session_state.max_questions
@@ -409,6 +418,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
