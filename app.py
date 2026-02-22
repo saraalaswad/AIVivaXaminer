@@ -271,9 +271,9 @@ def main():
         advance_category()
 
     def advance_category():
-    st.session_state.current_category_index += 1
-    if st.session_state.current_category_index >= len(st.session_state.category_order):
-        st.session_state.current_category_index = 0
+        st.session_state.current_category_index += 1
+        if st.session_state.current_category_index >= len(st.session_state.category_order):
+            st.session_state.current_category_index = 0
 
 
     # --------------------------------------------------
@@ -408,6 +408,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
