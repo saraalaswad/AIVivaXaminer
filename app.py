@@ -100,7 +100,7 @@ Question strategy based on mode:
 - DEEPEN: ask a deeper "why / how / justify" question
 
 Output format:
-**Category:
+**Category:**
 Question:
 """
 
@@ -422,6 +422,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
