@@ -95,9 +95,6 @@ Question strategy based on mode:
 Output format:
 Category:
 Question:
-Guidance:
-
-
 """
 
 prompt = PromptTemplate(
@@ -418,6 +415,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
