@@ -260,15 +260,15 @@ def main():
         st.session_state.current_category_index = 0
 
     if question_mode == "DEEPEN":
-    st.session_state.followup_depth += 1
+        st.session_state.followup_depth += 1
     else:
-    st.session_state.followup_depth = 0
+        st.session_state.followup_depth = 0
 
     if st.session_state.followup_depth >= 2:
-    st.session_state.viva_phase = "REDIRECTING"
+        st.session_state.viva_phase = "REDIRECTING"
 
     if st.session_state.viva_phase in ["REDIRECTING", "CLOSING"]:
-    advance_category()
+        advance_category()
 
     def advance_category():
     st.session_state.current_category_index += 1
@@ -408,6 +408,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
