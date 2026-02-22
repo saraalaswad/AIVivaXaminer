@@ -117,7 +117,7 @@ def decide_question_mode(student_answer):
     else:
         return "DEEPEN"      # strong answer → challenge
 
-question_mode = decide_question_mode(user_input)
+question_mode = decide_question_mode(student_answer)
 
 
 def generate_response(message):
@@ -408,6 +408,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
