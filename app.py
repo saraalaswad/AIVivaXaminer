@@ -223,7 +223,7 @@ def main():
         "viva_completed": False,
         "max_questions": 10,
         "asked_questions": set(),
-        "asked_categories": set()و
+        "asked_categories": set(),
         "viva_phase": "OPENING",
         "last_question_type": None,
         "followup_depth": 0
@@ -408,6 +408,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
