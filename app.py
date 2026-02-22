@@ -133,8 +133,7 @@ def generate_response(message):
     response = chain.run(
         message=message,
         retrieved_qa=retrieved_qa,
-        question_mode=question_mode
-    )
+        question_mode=question_mode)
 
     # ----------------------------------------------
     # HARD MEMORY UPDATE (prevents repetition)
@@ -418,6 +417,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
