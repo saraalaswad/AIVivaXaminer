@@ -82,7 +82,15 @@ Instructions:
 3. Ask exactly ONE question.
 4. Do NOT repeat or paraphrase any previously asked question.
 5. Maintain a supportive but academically rigorous tone.
-6. Provide a brief guidance note explaining what a strong answer should include.
+6. Occasionally acknowledge the student’s answer briefly before asking the next question.
+7. If this is the final question, frame it as a reflective or future-oriented question.
+
+
+
+Question strategy based on mode:
+- CLARIFY: ask a simpler or guiding question
+- PROBE: ask a standard category question
+- DEEPEN: ask a deeper "why / how / justify" question
 
 Output format:
 Category:
@@ -93,11 +101,24 @@ Guidance:
 """
 
 prompt = PromptTemplate(
-    input_variables=["message", "retrieved_qa"],
+    input_variables=["message", "retrieved_qa", "question_mode"],
     template=template
 )
 
 chain = LLMChain(llm=llm, prompt=prompt)
+
+def decide_question_mode(student_answer):
+    length = len(student_answer.split())
+
+    if length < 20:
+        return "CLARIFY"     # student is weak → help
+    elif length < 60:
+        return "PROBE"       # normal
+    else:
+        return "DEEPEN"      # strong answer → challenge
+
+question_mode = decide_question_mode(user_input)
+
 
 def generate_response(message):
     retrieved_qa = retrieve_info(message)
@@ -105,7 +126,7 @@ def generate_response(message):
     response = chain.run(
         message=message,
         retrieved_qa=retrieved_qa,
-        asked_categories=list(st.session_state.asked_categories)
+        question_mode=question_mode
     )
 
     # ----------------------------------------------
@@ -202,7 +223,11 @@ def main():
         "viva_completed": False,
         "max_questions": 10,
         "asked_questions": set(),
-        "asked_categories": set()
+        "asked_categories": set()و
+        "viva_phase": "OPENING",
+        "last_question_type": None,
+        "followup_depth": 0
+
     }
 
     for key, value in defaults.items():
@@ -232,6 +257,22 @@ def main():
         ]
 
     if "current_category_index" not in st.session_state:
+        st.session_state.current_category_index = 0
+
+    if question_mode == "DEEPEN":
+    st.session_state.followup_depth += 1
+    else:
+    st.session_state.followup_depth = 0
+
+    if st.session_state.followup_depth >= 2:
+    st.session_state.viva_phase = "REDIRECTING"
+
+    if st.session_state.viva_phase in ["REDIRECTING", "CLOSING"]:
+    advance_category()
+
+    def advance_category():
+    st.session_state.current_category_index += 1
+    if st.session_state.current_category_index >= len(st.session_state.category_order):
         st.session_state.current_category_index = 0
 
 
@@ -340,6 +381,7 @@ def main():
                 if (
                     st.session_state.question_count >= st.session_state.max_questions
                     and st.session_state.answer_count >= st.session_state.max_questions
+                    or st.session_state.viva_phase == "CLOSING"
                 ):
                     st.session_state.viva_active = False
                     st.session_state.viva_completed = True
@@ -366,6 +408,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
