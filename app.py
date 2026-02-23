@@ -93,7 +93,7 @@ Instructions:
 5. Maintain a supportive but academically rigorous tone.
 6. Occasionally acknowledge the student’s answer briefly before asking the next question.
 7. If this is the final question, frame it as a reflective or future-oriented question.
-8. follow logical viva order in questions
+8. Ensure questions follow a logical viva examination order.
 
 Question strategy based on mode:
 - CLARIFY: ask a simpler or guiding question
@@ -421,6 +421,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
