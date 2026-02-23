@@ -129,7 +129,10 @@ def decide_question_mode(student_answer: str) -> str:
         return "DEEPEN"       # strong answer
 
 
-
+def advance_category():
+    st.session_state.current_category_index += 1
+    if st.session_state.current_category_index >= len(st.session_state.category_order):
+        st.session_state.current_category_index = 0
 
 
 def generate_response(message):
@@ -386,11 +389,6 @@ def main():
                 
                     if st.session_state.viva_phase in ["REDIRECTING", "CLOSING"]:
                         advance_category()
-                
-                    def advance_category():
-                        st.session_state.current_category_index += 1
-                        if st.session_state.current_category_index >= len(st.session_state.category_order):
-                            st.session_state.current_category_index = 0
 
                 # End check AFTER last answer
                 if (
@@ -423,6 +421,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
