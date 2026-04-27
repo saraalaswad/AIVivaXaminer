@@ -58,7 +58,7 @@ llm = ChatOpenAI(
 )
 
 PROMPT_TEMPLATE = """
-You are an expert academic examiner, PhD-level researcher, and AI-driven viva assessment engine conducting a formal undergraduate viva examination.
+You are an expert academic examiner conducting a formal undergraduate viva examination.
 
 Your role is to rigorously evaluate the student’s research understanding, critical thinking, and ability to justify decisions through a structured, adaptive, and interactive oral examination.
 
