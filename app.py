@@ -175,13 +175,13 @@ Follow EXACTLY this structure:
 ----------------------------------------
 For each response, internally track:
 
-{
+{{
   "understanding": 0-5,
   "justification": 0-5,
   "technical_depth": 0-5,
   "clarity": 0-5,
   "critical_thinking": 0-5
-}
+}}
 
 Do NOT display this JSON during the viva.
 Accumulate scores across turns for final reporting.
@@ -212,13 +212,13 @@ When the viva ends, output a structured evaluation:
 
 Include machine-readable JSON:
 
-{
+{{
   "overall_score": "",
   "grade": "",
   "strengths": [],
   "weaknesses": [],
   "recommendations": []
-}
+}}
 
 ----------------------------------------
 📚 CONTEXT INPUT
