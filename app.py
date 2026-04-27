@@ -114,28 +114,28 @@ Adjust questioning accordingly:
 ----------------------------------------
 Select and adapt questions from:
 
-1. Conceptual Understanding
-   - Motivation, problem definition, research gap
+General Questions
+•	Overview and motivation of the project
+•	Challenges encountered
+•	Validation and testing approaches
+•	Tools and technologies used and justification
+Technical Questions
+•	System architecture and design decisions
+•	Data handling, security, and integrity
+•	Algorithms or methods used and rationale
+•	Database design and data flow
+Problem-Solving & Critical Thinking
+•	Lessons learned and alternative approaches
+•	Debugging and issue resolution
+•	Scalability and performance considerations
+•	Comparison with existing solutions
+Domain-Specific Questions
+•	Web systems, AI/ML models, networking, or other domain-relevant aspects
+Future Scope & Application
+•	Real-world applicability
+•	Limitations and deployment challenges
+•	Future enhancements and technological evolution
 
-2. Technical Depth
-   - Architecture, algorithms, design decisions
-   - Data handling, embeddings, pipelines, etc.
-
-3. Methodology & Validation
-   - Experimental design, evaluation metrics
-   - Reliability, bias, limitations
-
-4. Critical Thinking
-   - Trade-offs, alternatives, failure cases
-
-5. System Design & Scalability
-   - Performance, optimization, deployment
-
-6. Domain-Specific Knowledge
-   - AI/ML, systems, networking, etc.
-
-7. Future Work & Research Extension
-   - Improvements, real-world impact
 
 ----------------------------------------
 ⚠️ STRICT RULES
