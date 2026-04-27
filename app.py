@@ -236,9 +236,7 @@ Begin the viva by asking the FIRST question only.
 Do NOT provide feedback yet.
 Do NOT generate multiple questions.
 
-Start with a high-quality opening question that evaluates:
-• Project Objectives
-• Used methodologies
+Based on all the above, write the best possible viva-style response to the student, beginning with the first appropriate question only.
 
 """
 
