@@ -3,163 +3,284 @@ import time
 from datetime import datetime
 from dotenv import load_dotenv
 
-from langchain.document_loaders.csv_loader import CSVLoader
+# LangChain imports
+from langchain.document_loaders import CSVLoader
 from langchain.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.prompts import PromptTemplate
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import LLMChain
 
-# ReportLab
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+# PDF generation imports
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.enums import TA_LEFT
-from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 
+# --------------------------------------------------
+# Environment Setup
+# --------------------------------------------------
 load_dotenv()
 
 # --------------------------------------------------
-# 1. Vectorise CSV best-practice data
+# Examiner Credentials (demo)
 # --------------------------------------------------
-loader = CSVLoader(file_path="ts_response.csv")
-documents = loader.load()
-
-embeddings = OpenAIEmbeddings()
-db = FAISS.from_documents(documents, embeddings)
+EXAMINER_USERNAME = "examiner"
+EXAMINER_PASSWORD = "1234"
 
 # --------------------------------------------------
-# 2. Similarity search
+# Vector DB
 # --------------------------------------------------
-def retrieve_info(query):
-    docs = db.similarity_search(query, k=8)
+@st.cache_resource
+def initialize_vector_db():
+    loader = CSVLoader(file_path="ts_response.csv")
+    documents = loader.load()
 
-    target_category = st.session_state.category_order[
-        st.session_state.current_category_index
-    ]
-
-    filtered = []
-    for doc in docs:
-        question = doc.metadata.get("examiner_question", "")
-        category = doc.metadata.get("category", "")
-
-        if (
-            question not in st.session_state.asked_questions
-            and category == target_category
-        ):
-            filtered.append(doc.page_content)
-
-    # Fallback: if no question found in target category
-    if not filtered:
-        for doc in docs:
-            question = doc.metadata.get("examiner_question", "")
-            if question not in st.session_state.asked_questions:
-                filtered.append(doc.page_content)
-
-    return filtered[:3]
+    embeddings = OpenAIEmbeddings()
+    db = FAISS.from_documents(documents, embeddings)
+    return db
 
 
+db = initialize_vector_db()
 
 # --------------------------------------------------
-# 3. LLM & Prompt
+# Retrieval
+# --------------------------------------------------
+def retrieve_info(query, k=3):
+    results = db.similarity_search(query, k=k)
+    return [doc.page_content for doc in results]
+
+# --------------------------------------------------
+# LLM
 # --------------------------------------------------
 llm = ChatOpenAI(
-    temperature=0.7,
-    model="gpt-4-turbo"
+    model="gpt-4-turbo",
+    temperature=0.7
 )
 
-template = """
-You are an experienced academic professor conducting a viva for an undergraduate student. 
-Your goal is to evaluate the student’s understanding of their research project by asking questions one at a time, then discussing their answer with constructive feedback.
-Ask questions designed to probe the student’s knowledge of concepts, methodology, findings, problem-solving, and critical thinking.
+PROMPT_TEMPLATE = """
+You are an expert academic examiner and adaptive viva assessment engine for undergraduate research projects.
+You operate in TWO MODES:
+1.	LIVE VIVA MODE (default) 
+2.	FINAL EVALUATION MODE (PDF report) 
+________________________________________
+🔹 MODE 1: LIVE VIVA
+🎯 Objective
+•	Ask ONE question at a time 
+•	Adapt difficulty dynamically 
+•	Evaluate internally using the framework 
+•	DO NOT show scores 
+________________________________________
+🔁 CORE LOOP
+For each turn:
+1.	Analyze {message} 
+2.	Evaluate internally (framework below) 
+3.	Update performance memory 
+4.	Identify weakest dimensions 
+5.	Adjust difficulty 
+6.	Ask next question 
+________________________________________
+🛑 STOPPING RULES (CRITICAL)
+You MUST stop the viva and switch to FINAL EVALUATION MODE when ANY of the following conditions are met:
+1. Coverage Completion
+•	All 9 evaluation dimensions have been sufficiently assessed 
+•	Each dimension has been probed at least once 
+•	No major gaps remain 
+2. Diminishing Returns
+•	Last 2–3 responses show repetitive or plateaued performance 
+•	No new insights are being gained 
+3. Maximum Question Limit
+•	Reached 12–15 questions 
+4. Strong Confidence Early Stop
+•	Student consistently scores high (≈4–5 internally) 
+•	Clear mastery across most dimensions 
+5. Weak Performance Early Stop
+•	Student consistently scores low (≈1–2) 
+•	Further questioning unlikely to add value 
+6. Explicit User Trigger
+•	User says: 
+o	“generate report” 
+o	“final evaluation” 
+o	“export pdf” 
+________________________________________
+🔄 STOP TRANSITION BEHAVIOR
+When stopping condition is met:
+•	DO NOT ask another question 
+•	Immediately switch to FINAL EVALUATION MODE 
+•	Generate full structured report 
+________________________________________
+📤 OUTPUT (LIVE MODE ONLY)
+Viva Question:
+<one precise academic question>
+Guidance:
+•	Max 4 bullets 
+•	What a strong answer should include 
+________________________________________
+🔹 MODE 2: FINAL EVALUATION (PDF MODE)
+________________________________________
+📊 FULL EVALUATION FRAMEWORK
+Evaluate ALL dimensions:
+1.	Problem Definition (15%) 
+2.	Literature Search (10%) 
+3.	Solution Design (20%) 
+4.	Results & Analysis (15%) 
+5.	Implementation / Product (15%) 
+6.	References & Citation (5%) 
+7.	Teamwork (5%) 
+8.	Documentation & Format (7.5%) 
+9.	Delivery & Communication (7.5%) 
+________________________________________
+📈 SCORING SCALE
+•	1 = Weak 
+•	2 = Limited 
+•	3 = Acceptable 
+•	4 = Strong 
+•	5 = Excellent 
+________________________________________
+📤 OUTPUT (STRICT JSON FOR PDF)
+{
+  "overall_score": 0-100,
+  "grade": "A | B | C | D | F",
+  "completion_reason": "coverage | max_questions | plateau | high_mastery | low_performance | user_trigger",
 
-You have been provided:
-- Student input: {message}
-- Retrieved Q&A examples (none of which have been previously asked): {retrieved_qa}
-- Categories already covered: {asked_categories}
+  "performance_summary": "Concise academic summary",
 
-Question Categories (choose as appropriate for the student’s project):
-•	General: project overview, motivation, challenges, validation, tools/technologies
-•	Technical: system architecture, data security, algorithms, database design, data flow
-•	Problem-Solving/Critical Thinking: lessons learned, scalability, comparison with other solutions, performance optimization
-•	Domain-Specific: web/AI/ML/network considerations
-•	Future Scope: enhancements, real-world application, deployment challenges, tech evolution
+  "detailed_scores": {
+    "Problem Definition": {
+      "score": 1-5,
+      "weight": 0.15,
+      "justification": "..."
+    },
+    "Literature Search": {
+      "score": 1-5,
+      "weight": 0.10,
+      "justification": "..."
+    },
+    "Solution Design": {
+      "score": 1-5,
+      "weight": 0.20,
+      "justification": "..."
+    },
+    "Results & Analysis": {
+      "score": 1-5,
+      "weight": 0.15,
+      "justification": "..."
+    },
+    "Implementation/Product": {
+      "score": 1-5,
+      "weight": 0.15,
+      "justification": "..."
+    },
+    "References & Citation": {
+      "score": 1-5,
+      "weight": 0.05,
+      "justification": "..."
+    },
+    "Teamwork": {
+      "score": 1-5,
+      "weight": 0.05,
+      "justification": "..."
+    },
+    "Documentation & Format": {
+      "score": 1-5,
+      "weight": 0.075,
+      "justification": "..."
+    },
+    "Delivery & Communication": {
+      "score": 1-5,
+      "weight": 0.075,
+      "justification": "..."
+    }
+  },
 
-Instructions:
-1. Select ONE question from the retrieved Q&A that has not been asked before.
-2. Prefer a category that has not yet been covered in this viva.
-3. Ask exactly ONE question.
-4. Do NOT repeat or paraphrase any previously asked question.
-5. Maintain a supportive but academically rigorous tone.
-6. Occasionally acknowledge the student’s answer briefly before asking the next question.
-7. If this is the final question, frame it as a reflective or future-oriented question.
-8. Ensure questions follow a logical viva examination order.
+  "strengths": [
+    "...",
+    "..."
+  ],
 
-Question strategy based on mode:
-- CLARIFY: ask a simpler or guiding question
-- PROBE: ask a standard category question
-- DEEPEN: ask a deeper "why / how / justify" question
+  "weaknesses": [
+    "...",
+    "..."
+  ],
 
-Output format:
-**Category:**
-Question:
+  "recommendations": [
+    "...",
+    "..."
+  ]
+}
+________________________________________
+🧠 INTERNAL LOGIC (BOTH MODES)
+•	Track scores across turns 
+•	Maintain dimension coverage map 
+•	Detect repetition / plateau 
+•	Prioritize weakest dimensions 
+•	Follow progression: 
+o	What → How → Why → What-if 
+________________________________________
+🎯 DIFFICULTY CONTROL
+•	Low → basic understanding 
+•	Medium → applied reasoning 
+•	High → critical + edge cases 
+________________________________________
+⚠️ HARD RULES
+•	Ask ONLY ONE question in LIVE mode 
+•	NEVER show scores during viva 
+•	STOP when rules are met 
+•	NO repetition 
+•	Maintain academic tone 
+________________________________________
+🎯 TASK
+Using {message} and {best_practice}:
+•	Continue viva OR 
+•	Stop and generate final evaluation 
+based on stopping rules.
+
+
 """
 
 prompt = PromptTemplate(
-    input_variables=["message", "retrieved_qa", "question_mode"],
-    template=template
+    input_variables=["message", "best_practice"],
+    template=PROMPT_TEMPLATE
 )
 
 chain = LLMChain(llm=llm, prompt=prompt)
 
 # --------------------------------------------------
-# Viva flow helper (question depth control)
+# Response
 # --------------------------------------------------
-def decide_question_mode(student_answer: str) -> str:
-    if not student_answer:
-        return "PROBE"
-
-    word_count = len(student_answer.split())
-
-    if word_count < 20:
-        return "CLARIFY"      # weak / short answer
-    elif word_count < 60:
-        return "PROBE"        # normal answer
-    else:
-        return "DEEPEN"       # strong answer
-
-
-def advance_category():
-    st.session_state.current_category_index += 1
-    if st.session_state.current_category_index >= len(st.session_state.category_order):
-        st.session_state.current_category_index = 0
-
-
 def generate_response(message):
-    retrieved_qa = retrieve_info(message)
-
-    response = chain.run(
-        message=message,
-        retrieved_qa=retrieved_qa,
-        asked_categories=list(st.session_state.asked_categories)
-    )
-
-    # ----------------------------------------------
-    # HARD MEMORY UPDATE (prevents repetition)
-    # ----------------------------------------------
-    st.session_state.asked_questions.add(response)
-
-    return response
-
+    try:
+        best_practice = retrieve_info(message)
+        response = chain.run(
+            message=message,
+            best_practice=best_practice
+        )
+        return response
+    except Exception as e:
+        return f"⚠️ Error:\n{str(e)}"
 
 # --------------------------------------------------
-# 4. ReportLab PDF Generator
+# PDF Generator
 # --------------------------------------------------
-def generate_viva_pdf(messages):
-    file_path = "Final_Viva_Report.pdf"
+def generate_viva_pdf(chat_history, filename="AIViva_Transcript.pdf"):
+    styles = getSampleStyleSheet()
+    story = []
 
-    doc = SimpleDocTemplate(
-        file_path,
+    story.append(Paragraph("<b>AIVivaXaminer – Viva Transcript</b>", styles["Title"]))
+    story.append(Spacer(1, 12))
+
+    date_str = datetime.now().strftime("%d %B %Y, %H:%M")
+    story.append(Paragraph(f"<b>Date:</b> {date_str}", styles["Normal"]))
+    story.append(Spacer(1, 20))
+
+    for msg in chat_history:
+        role = "Student" if msg["role"] == "user" else "Examiner"
+        content = msg["content"].replace("\n", "<br/>")
+
+        story.append(Paragraph(f"<b>{role}:</b><br/>{content}", styles["Normal"]))
+        story.append(Spacer(1, 12))
+
+    pdf = SimpleDocTemplate(
+        filename,
         pagesize=A4,
         rightMargin=40,
         leftMargin=40,
@@ -167,281 +288,138 @@ def generate_viva_pdf(messages):
         bottomMargin=40
     )
 
-    styles = getSampleStyleSheet()
-
-    styles.add(
-        ParagraphStyle(
-            name="RoleStyle",
-            fontName="Helvetica-Bold",
-            fontSize=11,
-            leading=14,
-            spaceBefore=12,
-            spaceAfter=4,
-            alignment=TA_LEFT
-        )
-    )
-
-    styles.add(
-        ParagraphStyle(
-            name="ContentStyle",
-            fontSize=11,
-            leading=14,
-            spaceAfter=8,
-            alignment=TA_LEFT
-        )
-    )
-
-    story = []
-
-    story.append(Paragraph("<b>Final Viva Report</b>", styles["Title"]))
-    story.append(Spacer(1, 0.3 * inch))
-
-    story.append(
-        Paragraph(
-            f"<b>Date:</b> {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-            styles["Normal"]
-        )
-    )
-    story.append(Spacer(1, 0.3 * inch))
-
-    for msg in messages:
-        role = "Student" if msg["role"] == "user" else "Examiner"
-        story.append(Paragraph(role, styles["RoleStyle"]))
-        story.append(Paragraph(msg["content"], styles["ContentStyle"]))
-
-    doc.build(story)
-    return file_path
+    pdf.build(story)
+    return filename
 
 # --------------------------------------------------
-# 5. Streamlit App
+# APP
 # --------------------------------------------------
-EXAMINER_PASSWORD = "exam123"
-
 def main():
     st.set_page_config(
         page_title="AIVivaXaminer",
-        page_icon="🎓"
+        page_icon="🎓",
+        layout="centered"
     )
 
     st.title("🎓 AIVivaXaminer")
-    st.sidebar.title("Examiner Panel")
 
-    # --------------------------------------------------
-    # Session state defaults
-    # --------------------------------------------------
-    defaults = {
-        "examiner_logged_in": False,
-        "messages": [],
-        "question_count": 0,
-        "answer_count": -1,
-        "viva_active": True,
-        "viva_completed": False,
-        "max_questions": 10,
-        "asked_questions": set(),
-        "asked_categories": set(),
-        "viva_phase": "OPENING",
-        "last_question_type": None,
-        "followup_depth": 0
+    # ---------------- SESSION STATE ----------------
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
 
-    }
+    if "viva_active" not in st.session_state:
+        st.session_state.viva_active = True
 
-    for key, value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
+    if "examiner_logged_in" not in st.session_state:
+        st.session_state.examiner_logged_in = False
 
-    # --------------------------------------------------
-    # Viva memory (PREVENT REPEATED QUESTIONS)
-    # --------------------------------------------------
-    if "asked_questions" not in st.session_state:
-        st.session_state.asked_questions = set()
+    # ---------------- SIDEBAR ----------------
+    with st.sidebar:
+        st.header("🎛️ Examiner Panel")
 
-    if "asked_categories" not in st.session_state:
-        st.session_state.asked_categories = set()
+        # ---------------- LOGIN ----------------
+        if not st.session_state.examiner_logged_in:
+            st.subheader("🔐 Login")
 
-    # --------------------------------------------------
-    # Category rotation state
-    # --------------------------------------------------
-    if "category_order" not in st.session_state:
-        st.session_state.category_order = [
-            "General",
-            "Technical",
-            "Problem-Solving / Critical Thinking",
-            "Domain-Specific",
-            "Ethics / Professionalism",
-            "Future Scope"
-        ]
+            username = st.text_input("Username", key="exam_user")
+            password = st.text_input("Password", type="password", key="exam_pass")
 
-    if "current_category_index" not in st.session_state:
-        st.session_state.current_category_index = 0
+            if st.button("Login"):
+                if username == EXAMINER_USERNAME and password == EXAMINER_PASSWORD:
+                    st.session_state.examiner_logged_in = True
+                    st.success("Logged in successfully")
+                    st.rerun()
+                else:
+                    st.error("Invalid credentials")
 
+            st.info("Login required for examiner controls.")
 
+        else:
+            st.success("Examiner Mode Active")
 
+            # ---------------- VIVA CONTROL ----------------
+            st.subheader("🎛️ Viva Control")
 
-    # --------------------------------------------------
-    # Sidebar: Examiner authentication
-    # --------------------------------------------------
-    if st.session_state.examiner_logged_in:
-        st.sidebar.success("Examiner logged in")
-        if st.sidebar.button("Log out"):
-            st.session_state.examiner_logged_in = False
-    else:
-        password = st.sidebar.text_input(
-            "Examiner Password (optional)",
-            type="password"
-        )
-        if password and password == EXAMINER_PASSWORD:
-            st.session_state.examiner_logged_in = True
-            st.sidebar.success("Authentication successful")
-        elif password:
-            st.sidebar.error("Incorrect password")
+            if st.session_state.viva_active:
+                if st.button("🛑 Stop Viva"):
+                    st.session_state.viva_active = False
+                    st.success("Viva stopped")
+                    st.rerun()
+            else:
+                st.info("Viva session ended")
 
-    # --------------------------------------------------
-    # Sidebar: Examiner control panel
-    # --------------------------------------------------
-    if st.session_state.examiner_logged_in:
-        st.sidebar.header("Viva Controls")
+            st.divider()
 
-        st.session_state.max_questions = st.sidebar.number_input(
-            "Max questions",
-            min_value=1,
-            value=st.session_state.max_questions
-        )
+            # ---------------- EXPORT ----------------
+            st.subheader("📄 Export")
 
-        st.sidebar.info(
-            f"""
-            **Questions asked:** {st.session_state.question_count}  
-            **Answers given:** {st.session_state.answer_count}
-            """
-        )
+            if st.session_state.messages and not st.session_state.viva_active:
+                if st.button("Generate PDF Transcript"):
+                    pdf_file = generate_viva_pdf(
+                        st.session_state.messages,
+                        filename="AIViva_Transcript.pdf"
+                    )
 
-        if st.sidebar.button("Force Stop Viva"):
-            st.session_state.viva_active = False
-            st.session_state.viva_completed = True
-            st.warning("Viva forcibly stopped by examiner.")
+                    with open(pdf_file, "rb") as f:
+                        st.download_button(
+                            "⬇️ Download PDF",
+                            f,
+                            file_name="AIViva_Transcript.pdf",
+                            mime="application/pdf"
+                        )
+            else:
+                st.caption("Stop viva first to enable PDF")
 
-    # --------------------------------------------------
-    # Display chat history
-    # --------------------------------------------------
+            st.divider()
+
+            # ---------------- SESSION ----------------
+            st.subheader("⚙️ Session")
+
+            if st.button("🔄 Reset Session"):
+                st.session_state.messages = []
+                st.session_state.viva_active = True
+                st.success("Session reset")
+                st.rerun()
+
+            if st.button("🚪 Logout"):
+                st.session_state.examiner_logged_in = False
+                st.rerun()
+
+    # ---------------- CHAT (ALWAYS ACTIVE) ----------------
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # --------------------------------------------------
-    # Chat input
-    # --------------------------------------------------
-    if st.session_state.viva_active:
-        user_input = st.chat_input(
-            "Enter your research title / response (or type 'end viva')"
+    # ---------------- INPUT (NO LOGIN REQUIRED) ----------------
+    user_input = st.chat_input(
+        "Enter your research title ..."
+    ) if st.session_state.viva_active else None
+
+    if user_input:
+        st.chat_message("user").markdown(user_input)
+
+        st.session_state.messages.append(
+            {"role": "user", "content": user_input}
         )
 
-        if user_input:
-            if user_input.strip().lower() == "end viva":
-                st.session_state.viva_active = False
-                st.session_state.viva_completed = True
-                st.success("Viva session ended by the student.")
-            else:
-                # Student answer
-                st.session_state.messages.append(
-                    {"role": "user", "content": user_input}
-                )
-                st.session_state.answer_count += 1
+        with st.chat_message("assistant"):
+            placeholder = st.empty()
+            full_response = ""
 
-                with st.chat_message("user"):
-                    st.markdown(user_input)
+            assistant_response = generate_response(user_input)
 
-                question_mode = decide_question_mode(user_input)
-                # Examiner question
-                if (st.session_state.question_count < st.session_state.max_questions):
-                    response = generate_response(user_input)
-                    animated = ""
-    
-                    st.session_state.messages.append(
-                        {"role": "assistant", "content": ""}
-                    )
-                    placeholder_index = len(st.session_state.messages) - 1
-    
-                    with st.chat_message("assistant"):
-                        placeholder = st.empty()
-                        for word in response.split():
-                            animated += word + " "
-                            time.sleep(0.04)
-                            placeholder.markdown(animated + "▌")
-                        placeholder.markdown(animated)
-    
-                    st.session_state.messages[placeholder_index]["content"] = animated
-                    st.session_state.question_count += 1
-                    # Advance category rotation
-                    st.session_state.current_category_index += 1
-                    if st.session_state.current_category_index >= len(st.session_state.category_order):
-                        st.session_state.current_category_index = 0
+            for word in assistant_response.split():
+                full_response += word + " "
+                time.sleep(0.02)
+                placeholder.markdown(full_response + "▌")
 
-                    # Track category coverage (lightweight)
-                    st.session_state.asked_categories.add("AUTO")
+            placeholder.markdown(full_response)
+
+        st.session_state.messages.append(
+            {"role": "assistant", "content": full_response}
+        )
 
 
-                    if question_mode == "DEEPEN":
-                        st.session_state.followup_depth += 1
-                    else:
-                        st.session_state.followup_depth = 0
-                
-                    if st.session_state.followup_depth >= 2:
-                        st.session_state.viva_phase = "REDIRECTING"
-                
-                    if st.session_state.viva_phase in ["REDIRECTING", "CLOSING"]:
-                        advance_category()
-
-                # End check AFTER last answer
-                if (
-                    st.session_state.question_count >= st.session_state.max_questions
-                    and st.session_state.answer_count >= st.session_state.max_questions
-                    or st.session_state.viva_phase == "CLOSING"
-                ):
-                    st.session_state.viva_active = False
-                    st.session_state.viva_completed = True
-                    st.warning("Viva completed successfully.")
-
-
-    # --------------------------------------------------
-    # FINAL VIVA REPORT
-    # --------------------------------------------------
-    if st.session_state.viva_completed:
-        st.markdown("---")
-        st.subheader("📄 Final Viva Report")
-
-        if st.button("Generate Final Viva Report (PDF)"):
-            pdf_path = generate_viva_pdf(st.session_state.messages)
-
-            with open(pdf_path, "rb") as f:
-                st.download_button(
-                    label="⬇️ Download Final Viva Report",
-                    data=f,
-                    file_name="Final_Viva_Report.pdf",
-                    mime="application/pdf"
-                )
-
+# --------------------------------------------------
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
