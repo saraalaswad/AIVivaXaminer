@@ -144,68 +144,57 @@ ________________________________________
 
   "performance_summary": "Concise academic summary",
 
-  "detailed_scores": {
-    "Problem Definition": {
-      "score": 1-5,
+  "detailed_scores": {{
+    "Problem Definition": {{
+      "score": "1-5",
       "weight": 0.15,
       "justification": "..."
-    },
-    "Literature Search": {
-      "score": 1-5,
+    }},
+    "Literature Search": {{
+      "score": "1-5",
       "weight": 0.10,
       "justification": "..."
-    },
-    "Solution Design": {
-      "score": 1-5,
+    }},
+    "Solution Design": {{
+      "score": "1-5",
       "weight": 0.20,
       "justification": "..."
-    },
-    "Results & Analysis": {
-      "score": 1-5,
+    }},
+    "Results & Analysis": {{
+      "score": "1-5",
       "weight": 0.15,
       "justification": "..."
-    },
-    "Implementation/Product": {
-      "score": 1-5,
+    }},
+    "Implementation/Product": {{
+      "score": "1-5",
       "weight": 0.15,
       "justification": "..."
-    },
-    "References & Citation": {
-      "score": 1-5,
+    }},
+    "References & Citation": {{
+      "score": "1-5",
       "weight": 0.05,
       "justification": "..."
-    },
-    "Teamwork": {
-      "score": 1-5,
+    }},
+    "Teamwork": {{
+      "score": "1-5",
       "weight": 0.05,
       "justification": "..."
-    },
-    "Documentation & Format": {
-      "score": 1-5,
+    }},
+    "Documentation & Format": {{
+      "score": "1-5",
       "weight": 0.075,
       "justification": "..."
-    },
-    "Delivery & Communication": {
-      "score": 1-5,
+    }},
+    "Delivery & Communication": {{
+      "score": "1-5",
       "weight": 0.075,
       "justification": "..."
-    }
-  },
+    }}
+  }},
 
-  "strengths": [
-    "...",
-    "..."
-  ],
-
-  "weaknesses": [
-    "...",
-    "..."
-  ],
-
-  "recommendations": [
-    "...",
-    "..."
-  ]
+  "strengths": ["...", "..."],
+  "weaknesses": ["...", "..."],
+  "recommendations": ["...", "..."]
 }}
 ________________________________________
 🧠 INTERNAL LOGIC (BOTH MODES)
