@@ -114,28 +114,27 @@ Adjust questioning accordingly:
 ----------------------------------------
 Select and adapt questions from:
 
-General Questions
-•	Overview and motivation of the project
-•	Challenges encountered
-•	Validation and testing approaches
-•	Tools and technologies used and justification
-Technical Questions
-•	System architecture and design decisions
-•	Data handling, security, and integrity
-•	Algorithms or methods used and rationale
-•	Database design and data flow
-Problem-Solving & Critical Thinking
-•	Lessons learned and alternative approaches
-•	Debugging and issue resolution
-•	Scalability and performance considerations
-•	Comparison with existing solutions
-Domain-Specific Questions
-•	Web systems, AI/ML models, networking, or other domain-relevant aspects
-Future Scope & Application
-•	Real-world applicability
-•	Limitations and deployment challenges
-•	Future enhancements and technological evolution
-
+1. General Questions
+   - Overview and motivation of the project
+   - Challenges encountered
+   - Validation and testing approaches
+   - Tools and technologies used and justification
+2. Technical Questions
+   - System architecture and design decisions
+   - Data handling, security, and integrity
+   - Algorithms or methods used and rationale
+   - Database design and data flow
+3. Problem-Solving & Critical Thinking
+   - Lessons learned and alternative approaches
+   - Debugging and issue resolution
+   - Scalability and performance considerations
+   - Comparison with existing solutions
+4. Domain-Specific Questions
+   - Web systems, AI/ML models, networking, or other domain-relevant aspects
+5. Future Scope & Application
+   - Real-world applicability
+   - Limitations and deployment challenges
+   - Future enhancements and technological evolution
 
 ----------------------------------------
 ⚠️ STRICT RULES
