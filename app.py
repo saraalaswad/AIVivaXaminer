@@ -237,6 +237,7 @@ Do NOT provide feedback yet.
 Do NOT generate multiple questions.
 
 Start with a high-quality opening question that evaluates:
+• Project overview and Objectives
 • Problem understanding
 • Research motivation
 • Project clarity
