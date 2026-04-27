@@ -137,7 +137,7 @@ ________________________________________
 •	5 = Excellent 
 ________________________________________
 📤 OUTPUT (STRICT JSON FOR PDF)
-{
+{{
   "overall_score": 0-100,
   "grade": "A | B | C | D | F",
   "completion_reason": "coverage | max_questions | plateau | high_mastery | low_performance | user_trigger",
@@ -206,7 +206,7 @@ ________________________________________
     "...",
     "..."
   ]
-}
+}}
 ________________________________________
 🧠 INTERNAL LOGIC (BOTH MODES)
 •	Track scores across turns 
