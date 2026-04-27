@@ -75,7 +75,7 @@ Question Categories (choose as appropriate for the student’s project):
 •	Problem-Solving/Critical Thinking: lessons learned, scalability, comparison with other solutions, performance optimization
 •	Domain-Specific: web/AI/ML/network considerations
 •	Future Scope: enhancements, real-world application, deployment challenges, tech evolution
-Task: Using {message} and {best_practice}, generate the first viva question along with brief guidance to the student. Keep it clear, professional, and aligned with best practices.
+Task: Using {message} and {best_practice}, generate the first viva question. Keep it clear, professional, and aligned with best practices.
 
 
 """
