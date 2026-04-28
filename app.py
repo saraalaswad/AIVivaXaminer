@@ -231,6 +231,11 @@ def main():
         else:
             st.success("Examiner Mode Active")
 
+            # ---------------- Category ----------------
+            st.subheader("📊 Current Category")
+            st.write(get_current_category())
+            st.divider()
+            
             # ---------------- VIVA CONTROL ----------------
             st.subheader("🎛️ Viva Control")
 
@@ -284,7 +289,7 @@ def main():
                 st.session_state.examiner_logged_in = False
                 st.rerun()
 
-            st.write("Current Category:", get_current_category())
+            
 
     # ---------------- CHAT HISTORY ----------------
     for m in st.session_state.messages:
