@@ -297,7 +297,7 @@ def main():
         with st.chat_message(m["role"]):
             st.markdown(m["content"])
 
-    user_input = st.chat_input("Enter response...") if st.session_state.viva_active else None
+    user_input = st.chat_input("Enter your research title ...") if st.session_state.viva_active else None
 
     if user_input:
         st.chat_message("user").markdown(user_input)
