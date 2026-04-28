@@ -198,13 +198,13 @@ AFTER EACH RESPONSE:
 
 Track internally (DO NOT show during viva):
 
-{
+{{
   "understanding": 0-5,
   "justification": 0-5,
   "technical_knowledge": 0-5,
   "clarity": 0-5,
   "problem_solving": 0-5
-}
+}}
 
 ----------------------------------------
 🛑 TERMINATION RULE (STRICT)
