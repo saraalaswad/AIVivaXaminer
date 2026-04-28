@@ -129,8 +129,7 @@ def init_state():
     if "viva_state" not in st.session_state:
         st.session_state.viva_state = {
             "current_category_index": 1,
-            "evaluations": [],
-            "last_question": None   # ✅ FIX: track only model questions
+            "evaluations": []
         }
 
 # --------------------------------------------------
@@ -150,9 +149,10 @@ def get_current_category():
     return CATEGORIES[st.session_state.viva_state["current_category_index"] - 1]
 
 # --------------------------------------------------
-# PDF
+# PDF GENERATION (FIXED - NO KEY ERROR)
 # --------------------------------------------------
 def generate_pdf(chat, evaluations):
+
     styles = getSampleStyleSheet()
     report = []
 
@@ -160,7 +160,7 @@ def generate_pdf(chat, evaluations):
     report.append(Spacer(1, 12))
 
     # -----------------------
-    # Transcript
+    # TRANSCRIPT
     # -----------------------
     report.append(Paragraph("Transcript", styles["Heading2"]))
     report.append(Spacer(1, 10))
@@ -171,7 +171,7 @@ def generate_pdf(chat, evaluations):
         report.append(Spacer(1, 6))
 
     # -----------------------
-    # Evaluation
+    # EVALUATION (SAFE FIX HERE)
     # -----------------------
     report.append(Spacer(1, 20))
     report.append(Paragraph("Evaluation", styles["Heading2"]))
@@ -180,10 +180,15 @@ def generate_pdf(chat, evaluations):
     count = 0
 
     for e in evaluations:
-        ev = e["evaluation"]
 
-        report.append(Paragraph(f"<b>Q:</b> {e['question']}", styles["Normal"]))
-        report.append(Paragraph(f"<b>A:</b> {e['answer']}", styles["Normal"]))
+        question = e["question"]
+        answer = e["answer"]
+
+        # ✅ SAFE: evaluate here (no missing keys anymore)
+        ev = evaluate_answer(question, answer)
+
+        report.append(Paragraph(f"<b>Q:</b> {question}", styles["Normal"]))
+        report.append(Paragraph(f"<b>A:</b> {answer}", styles["Normal"]))
 
         if "overall_score" in ev:
             score = ev["overall_score"]
@@ -213,7 +218,7 @@ def generate_pdf(chat, evaluations):
 # APP
 # --------------------------------------------------
 def main():
-    st.title("🎓 AI Viva Examiner (Correct Q-A Alignment Mode)")
+    st.title("🎓 AI Viva Examiner (Stable Mode)")
 
     init_state()
 
@@ -230,32 +235,26 @@ def main():
     user_input = st.chat_input("Enter your answer...")
 
     # -----------------------
-    # VIVA FLOW (EXAMINER-LED)
+    # VIVA FLOW
     # -----------------------
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
 
         best = retrieve_info(user_input)
 
-        model_question = chain.invoke({
+        response = chain.invoke({
             "message": user_input,
             "best_practice": best,
             "current_category": get_current_category()
         })["text"]
 
-        st.session_state.messages.append({"role": "assistant", "content": model_question})
+        st.session_state.messages.append({"role": "assistant", "content": response})
 
-        # store ONLY model question as valid viva question
-        st.session_state.viva_state["last_question"] = model_question
-
-        # -----------------------------------------
-        # FIX: only evaluate if model question exists
-        # -----------------------------------------
-        if st.session_state.viva_state["last_question"] is not None:
-            st.session_state.viva_state["evaluations"].append({
-                "question": st.session_state.viva_state["last_question"],
-                "answer": user_input
-            })
+        # store ONLY QA pair (no evaluation here)
+        st.session_state.viva_state["evaluations"].append({
+            "question": response,
+            "answer": user_input
+        })
 
         st.rerun()
 
