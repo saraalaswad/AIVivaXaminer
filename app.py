@@ -255,7 +255,7 @@ def main():
 
             if st.session_state.messages and not st.session_state.viva_active:
                 if st.button("Generate PDF Transcript"):
-                    pdf_file = generate_viva_pdf(
+                    pdf_file = generate_pdf(
                         st.session_state.messages,
                         filename="AIViva_Transcript.pdf"
                     )
