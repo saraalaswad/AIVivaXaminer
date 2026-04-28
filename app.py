@@ -22,12 +22,6 @@ from reportlab.lib.styles import getSampleStyleSheet
 load_dotenv()
 
 # --------------------------------------------------
-# LOGIN
-# --------------------------------------------------
-EXAMINER_USERNAME = "examiner"
-EXAMINER_PASSWORD = "1234"
-
-# --------------------------------------------------
 # VECTOR DB
 # --------------------------------------------------
 @st.cache_resource
@@ -68,7 +62,7 @@ EVALUATION_FRAMEWORK = {
 # PROMPTS
 # --------------------------------------------------
 PROMPT_TEMPLATE = """
-You are an experienced academic professor conducting a formal undergraduate viva.
+You are an experienced academic professor conducting a viva.
 
 CURRENT CATEGORY: {current_category}
 
@@ -126,11 +120,13 @@ def clean_json_output(text):
     return match.group(0) if match else text
 
 def evaluate_answer(question, answer):
-    raw = eval_chain.run(
-        framework=json.dumps(EVALUATION_FRAMEWORK, indent=2),  # ✅ FIX
-        question=question,
-        answer=answer
-    )
+    response = eval_chain.invoke({
+        "framework": json.dumps(EVALUATION_FRAMEWORK, indent=2),
+        "question": question,
+        "answer": answer
+    })
+
+    raw = response["text"]
 
     cleaned = clean_json_output(raw)
 
@@ -228,15 +224,15 @@ def main():
 
         best = retrieve_info(user_input)
 
-        response = chain.run(
-            message=user_input,
-            best_practice=best,
-            current_category=get_current_category()
-        )
+        response = chain.invoke({
+            "message": user_input,
+            "best_practice": best,
+            "current_category": get_current_category()
+        })["text"]
 
         st.session_state.messages.append({"role": "assistant", "content": response})
 
-        # ✅ Evaluation
+        # Evaluation
         evaluation = evaluate_answer(user_input, response)
 
         if "error" in evaluation:
