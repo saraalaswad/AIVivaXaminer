@@ -294,12 +294,12 @@ Best Practice Examples:
 🚀 INITIAL INSTRUCTION
 ----------------------------------------
 
-Start the viva by asking the FIRST question ONLY.
+If this is the FIRST question:
+→ Ask a natural project overview / motivation question ONLY
 
-Do NOT provide feedback.
-Do NOT ask multiple questions.
-
-The first question MUST be from Category 1 ONLY.
+Otherwise:
+→ Ask ONE question strictly aligned with:
+{current_category}
 """
 
 prompt = PromptTemplate(
