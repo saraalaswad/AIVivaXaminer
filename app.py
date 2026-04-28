@@ -123,14 +123,14 @@ Answer:
         return {"error": "parse_failed", "raw": response}
 
 # --------------------------------------------------
-# STATE
+# STATE (SAFE INITIALIZATION)
 # --------------------------------------------------
 def init_state():
     if "viva_state" not in st.session_state:
         st.session_state.viva_state = {
             "current_category_index": 1,
             "evaluations": [],
-            "skip_first_eval": True   # ✅ KEY FIX
+            "skip_first_eval": True
         }
 
 # --------------------------------------------------
@@ -172,10 +172,10 @@ def generate_pdf(chat, evaluations):
         report.append(Spacer(1, 6))
 
     # -----------------------
-    # EVALUATION (SKIP FIRST INPUT)
+    # EVALUATION (SAFE SKIP FIRST)
     # -----------------------
     report.append(Spacer(1, 20))
-    report.append(Paragraph("Evaluation", styles["Heading2"]))
+    report.append(Paragraph("Evaluation", styles["Heading2"])
 
     total = 0
     count = 0
@@ -184,7 +184,7 @@ def generate_pdf(chat, evaluations):
 
     for i, e in enumerate(evaluations):
 
-        # ✅ SKIP FIRST QA PAIR ONLY
+        # ✅ SAFE SKIP FIRST PAIR
         if i == 0 and skip_first:
             continue
 
@@ -224,7 +224,7 @@ def generate_pdf(chat, evaluations):
 # APP
 # --------------------------------------------------
 def main():
-    st.title("🎓 AI Viva Examiner (Skip First Input Evaluation)")
+    st.title("🎓 AI Viva Examiner (Stable + Safe Mode)")
 
     init_state()
 
@@ -261,14 +261,15 @@ def main():
             "answer": user_input
         })
 
-        # ✅ Mark skip flag AFTER first interaction
-        if st.session_state.viva_state["skip_first_eval"]:
-            st.session_state.viva_state["skip_first_eval"] = False
+        # ✅ SAFE FLAG UPDATE
+        state = st.session_state.viva_state
+        if state.get("skip_first_eval", True):
+            state["skip_first_eval"] = False
 
         st.rerun()
 
     # -----------------------
-    # PDF
+    # PDF GENERATION
     # -----------------------
     if st.button("Generate PDF"):
         file = generate_pdf(
