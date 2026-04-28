@@ -59,7 +59,7 @@ EVALUATION_FRAMEWORK = {
 }
 
 # --------------------------------------------------
-# PROMPTS
+# PROMPT (VIVA QUESTION)
 # --------------------------------------------------
 PROMPT_TEMPLATE = """
 You are an experienced academic professor conducting a viva.
@@ -75,41 +75,12 @@ Retrieved Knowledge:
 Ask ONE question only.
 """
 
-EVAL_PROMPT = """
-You MUST return ONLY valid JSON.
-
-{
-  "scores": {
-    "Problem Definition": {
-      "Coherence": 0-10
-    }
-  },
-  "overall_score": 0-100,
-  "feedback": "text"
-}
-
-RUBRIC:
-{framework}
-
-Question:
-{question}
-
-Student Answer:
-{answer}
-"""
-
 prompt = PromptTemplate(
     input_variables=["message", "best_practice", "current_category"],
     template=PROMPT_TEMPLATE
 )
 
-eval_prompt = PromptTemplate(
-    input_variables=["framework", "question", "answer"],
-    template=EVAL_PROMPT
-)
-
 chain = LLMChain(llm=llm, prompt=prompt)
-eval_chain = LLMChain(llm=eval_llm, prompt=eval_prompt)
 
 # --------------------------------------------------
 # JSON CLEANING
@@ -119,21 +90,44 @@ def clean_json_output(text):
     match = re.search(r"\{.*\}", text, re.DOTALL)
     return match.group(0) if match else text
 
+# --------------------------------------------------
+# EVALUATION (NO LANGCHAIN TEMPLATE = NO ERRORS)
+# --------------------------------------------------
 def evaluate_answer(question, answer):
-    response = eval_chain.invoke({
-        "framework": json.dumps(EVALUATION_FRAMEWORK, indent=2),
-        "question": question,
-        "answer": answer
-    })
+    prompt = f"""
+You MUST return ONLY valid JSON.
 
-    raw = response["text"]
+{{
+  "scores": {{
+    "Problem Definition": {{
+      "Coherence": 0-10
+    }}
+  }},
+  "overall_score": 0-100,
+  "feedback": "text"
+}}
 
-    cleaned = clean_json_output(raw)
+RUBRIC:
+{json.dumps(EVALUATION_FRAMEWORK, indent=2)}
+
+Question:
+{question}
+
+Student Answer:
+{answer}
+"""
+
+    response = eval_llm.predict(prompt)
+
+    cleaned = clean_json_output(response)
 
     try:
         return json.loads(cleaned)
     except:
-        return {"error": "Parsing failed", "raw": raw}
+        return {
+            "error": "Parsing failed",
+            "raw": response
+        }
 
 # --------------------------------------------------
 # STATE
@@ -232,7 +226,7 @@ def main():
 
         st.session_state.messages.append({"role": "assistant", "content": response})
 
-        # Evaluation
+        # ✅ Evaluation
         evaluation = evaluate_answer(user_input, response)
 
         if "error" in evaluation:
