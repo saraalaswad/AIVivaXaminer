@@ -209,22 +209,66 @@ def main():
 
     # ---------------- SIDEBAR ----------------
     with st.sidebar:
-        st.header("Control Panel")
+        st.header("🎛️ Examiner Panel")
 
-        if not st.session_state.logged_in:
-            u = st.text_input("Username")
-            p = st.text_input("Password", type="password")
+        # ---------------- LOGIN ----------------
+        if not st.session_state.examiner_logged_in:
+            st.subheader("🔐 Login")
+
+            username = st.text_input("Username", key="exam_user")
+            password = st.text_input("Password", type="password", key="exam_pass")
 
             if st.button("Login"):
-                if u == EXAMINER_USERNAME and p == EXAMINER_PASSWORD:
-                    st.session_state.logged_in = True
+                if username == EXAMINER_USERNAME and password == EXAMINER_PASSWORD:
+                    st.session_state.examiner_logged_in = True
+                    st.success("Logged in successfully")
                     st.rerun()
+                else:
+                    st.error("Invalid credentials")
+
+            st.info("Login required for examiner controls.")
+
         else:
-            st.success("Logged In")
+            st.success("Examiner Mode Active")
 
-            st.write("Current Category:", get_current_category())
+            # ---------------- VIVA CONTROL ----------------
+            st.subheader("🎛️ Viva Control")
 
-            if st.button("Reset"):
+            if st.session_state.viva_active:
+                if st.button("🛑 Stop Viva"):
+                    st.session_state.viva_active = False
+                    st.success("Viva stopped")
+                    st.rerun()
+            else:
+                st.info("Viva session ended")
+
+            st.divider()
+
+            # ---------------- EXPORT ----------------
+            st.subheader("📄 Export")
+
+            if st.session_state.messages and not st.session_state.viva_active:
+                if st.button("Generate PDF Transcript"):
+                    pdf_file = generate_viva_pdf(
+                        st.session_state.messages,
+                        filename="AIViva_Transcript.pdf"
+                    )
+
+                    with open(pdf_file, "rb") as f:
+                        st.download_button(
+                            "⬇️ Download PDF",
+                            f,
+                            file_name="AIViva_Transcript.pdf",
+                            mime="application/pdf"
+                        )
+            else:
+                st.caption("Stop viva first to enable PDF")
+
+            st.divider()
+            # ---------------- SESSION ----------------
+            st.subheader("⚙️ Session")
+
+            if st.button("🔄 Reset Session"):
                 st.session_state.viva_state = {
                     "current_category_index": 1,
                     "questions_asked_total": 0,
@@ -232,7 +276,15 @@ def main():
                     "follow_up_allowed": False
                 }
                 st.session_state.messages = []
+                st.session_state.viva_active = True
+                st.success("Session reset")
                 st.rerun()
+
+            if st.button("🚪 Logout"):
+                st.session_state.examiner_logged_in = False
+                st.rerun()
+
+            st.write("Current Category:", get_current_category())
 
     # ---------------- CHAT HISTORY ----------------
     for m in st.session_state.messages:
