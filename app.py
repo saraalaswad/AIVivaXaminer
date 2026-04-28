@@ -93,7 +93,7 @@ RULES
 • Do NOT repeat previous topics
 • Do NOT ask overview/problem unless category is General Understanding
 • Keep tone formal and academic
-
+• Do NOT add explanations
 
 ----------------------------------------
 CONTEXT
