@@ -59,7 +59,7 @@ EVALUATION_FRAMEWORK = {
 }
 
 # --------------------------------------------------
-# PROMPT (VIVA QUESTION)
+# PROMPT
 # --------------------------------------------------
 PROMPT_TEMPLATE = """
 You are an experienced academic professor conducting a viva.
@@ -129,7 +129,8 @@ def init_state():
     if "viva_state" not in st.session_state:
         st.session_state.viva_state = {
             "current_category_index": 1,
-            "evaluations": []
+            "evaluations": [],
+            "skip_first_eval": True   # ✅ KEY FIX
         }
 
 # --------------------------------------------------
@@ -149,7 +150,7 @@ def get_current_category():
     return CATEGORIES[st.session_state.viva_state["current_category_index"] - 1]
 
 # --------------------------------------------------
-# PDF GENERATION (FIXED - NO KEY ERROR)
+# PDF GENERATION
 # --------------------------------------------------
 def generate_pdf(chat, evaluations):
 
@@ -171,7 +172,7 @@ def generate_pdf(chat, evaluations):
         report.append(Spacer(1, 6))
 
     # -----------------------
-    # EVALUATION (SAFE FIX HERE)
+    # EVALUATION (SKIP FIRST INPUT)
     # -----------------------
     report.append(Spacer(1, 20))
     report.append(Paragraph("Evaluation", styles["Heading2"]))
@@ -179,12 +180,17 @@ def generate_pdf(chat, evaluations):
     total = 0
     count = 0
 
-    for e in evaluations:
+    skip_first = st.session_state.viva_state.get("skip_first_eval", True)
+
+    for i, e in enumerate(evaluations):
+
+        # ✅ SKIP FIRST QA PAIR ONLY
+        if i == 0 and skip_first:
+            continue
 
         question = e["question"]
         answer = e["answer"]
 
-        # ✅ SAFE: evaluate here (no missing keys anymore)
         ev = evaluate_answer(question, answer)
 
         report.append(Paragraph(f"<b>Q:</b> {question}", styles["Normal"]))
@@ -218,7 +224,7 @@ def generate_pdf(chat, evaluations):
 # APP
 # --------------------------------------------------
 def main():
-    st.title("🎓 AI Viva Examiner (Stable Mode)")
+    st.title("🎓 AI Viva Examiner (Skip First Input Evaluation)")
 
     init_state()
 
@@ -250,16 +256,19 @@ def main():
 
         st.session_state.messages.append({"role": "assistant", "content": response})
 
-        # store ONLY QA pair (no evaluation here)
         st.session_state.viva_state["evaluations"].append({
             "question": response,
             "answer": user_input
         })
 
+        # ✅ Mark skip flag AFTER first interaction
+        if st.session_state.viva_state["skip_first_eval"]:
+            st.session_state.viva_state["skip_first_eval"] = False
+
         st.rerun()
 
     # -----------------------
-    # PDF GENERATION
+    # PDF
     # -----------------------
     if st.button("Generate PDF"):
         file = generate_pdf(
