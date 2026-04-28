@@ -51,13 +51,11 @@ llm = ChatOpenAI(model="gpt-4-turbo", temperature=0.7)
 # CATEGORY CONTROL (PYTHON IS NOW THE BOSS)
 # --------------------------------------------------
 CATEGORIES = [
-    "General Understanding",
-    "Technical Understanding",
-    "Methodology & Testing",
-    "Problem-Solving",
-    "System Thinking",
-    "Reflection & Limitations",
-    "Real-World Application"
+    "General: project overview, motivation, challenges, validation, tools/technologies",
+    "Technical: system architecture, data security, algorithms, database design, data flow",
+    "Problem-Solving/Critical Thinking: lessons learned, scalability, comparison with other solutions, performance optimization",
+    "Domain-Specific: web/AI/ML/network considerations",
+    "Future Scope: enhancements, real-world application, deployment challenges, tech evolution"
 ]
 
 def get_current_category():
@@ -129,7 +127,7 @@ def init_state():
         st.session_state.viva_state = {
             "current_category_index": 1,
             "questions_asked_total": 0,
-            "questions_per_category": [0,0,0,0,0,0,0],
+            "questions_per_category": [0,0,0,0,0],
             "follow_up_allowed": False
         }
 
@@ -228,7 +226,7 @@ def main():
                 st.session_state.viva_state = {
                     "current_category_index": 1,
                     "questions_asked_total": 0,
-                    "questions_per_category": [0,0,0,0,0,0,0],
+                    "questions_per_category": [0,0,0,0,0],
                     "follow_up_allowed": False
                 }
                 st.session_state.messages = []
