@@ -91,7 +91,7 @@ def clean_json_output(text):
     return match.group(0) if match else text
 
 # --------------------------------------------------
-# EVALUATION (NO LANGCHAIN TEMPLATE = NO ERRORS)
+# EVALUATION
 # --------------------------------------------------
 def evaluate_answer(question, answer):
     prompt = f"""
@@ -118,7 +118,6 @@ Student Answer:
 """
 
     response = eval_llm.predict(prompt)
-
     cleaned = clean_json_output(response)
 
     try:
@@ -136,7 +135,8 @@ def init_state():
     if "viva_state" not in st.session_state:
         st.session_state.viva_state = {
             "current_category_index": 1,
-            "evaluations": []
+            "evaluations": [],
+            "skip_first_evaluation": True   # ✅ KEY FIX
         }
 
 # --------------------------------------------------
@@ -182,11 +182,13 @@ def generate_pdf(chat, evaluations):
 
         ev = e["evaluation"]
 
-        if "overall_score" in ev:
-            report.append(Paragraph(f"Score: {ev['overall_score']}", styles["Normal"]))
-
-        if "feedback" in ev:
-            report.append(Paragraph(f"Feedback: {ev['feedback']}", styles["Normal"]))
+        if "skipped" in ev:
+            report.append(Paragraph("Evaluation: Skipped (first response)", styles["Normal"]))
+        else:
+            if "overall_score" in ev:
+                report.append(Paragraph(f"Score: {ev['overall_score']}", styles["Normal"]))
+            if "feedback" in ev:
+                report.append(Paragraph(f"Feedback: {ev['feedback']}", styles["Normal"]))
 
         report.append(Spacer(1, 10))
 
@@ -226,8 +228,14 @@ def main():
 
         st.session_state.messages.append({"role": "assistant", "content": response})
 
-        # ✅ Evaluation
-        evaluation = evaluate_answer(user_input, response)
+        # --------------------------------------------------
+        # ✅ SKIP FIRST EVALUATION FIX
+        # --------------------------------------------------
+        if st.session_state.viva_state["skip_first_evaluation"]:
+            evaluation = {"skipped": True, "reason": "First input not evaluated"}
+            st.session_state.viva_state["skip_first_evaluation"] = False
+        else:
+            evaluation = evaluate_answer(user_input, response)
 
         if "error" in evaluation:
             st.error("⚠️ Evaluation parsing failed")
