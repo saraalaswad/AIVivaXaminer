@@ -194,7 +194,7 @@ def generate_pdf(chat_history, filename="viva.pdf"):
 def main():
     st.set_page_config(page_title="AIVivaXaminer", page_icon="🎓")
 
-    st.title("🎓 AIVivaXaminer (Fixed Version)")
+    st.title("🎓 AIVivaXaminer")
 
     init_state()
 
@@ -204,8 +204,8 @@ def main():
     if "viva_active" not in st.session_state:
         st.session_state.viva_active = True
 
-    if "logged_in" not in st.session_state:
-        st.session_state.logged_in = False
+    if "examiner_logged_in" not in st.session_state:
+        st.session_state.examiner_logged_in = False
 
     # ---------------- SIDEBAR ----------------
     with st.sidebar:
