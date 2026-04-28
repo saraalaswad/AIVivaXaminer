@@ -171,20 +171,21 @@ def generate_response(message):
 # --------------------------------------------------
 def generate_pdf(chat_history, filename="viva.pdf"):
     styles = getSampleStyleSheet()
-    story = []
-
-    story.append(Paragraph("AI Viva Transcript", styles["Title"]))
-    story.append(Spacer(1, 12))
+    report = []
+    
+    date_str = datetime.now().strftime("%d %B %Y, %H:%M")
+    report.append(Paragraph("AI Viva Transcript", styles["Title"]))
+    report.append(Spacer(1, 12))
 
     for msg in chat_history:
         role = "Student" if msg["role"] == "user" else "Examiner"
         text = msg["content"].replace("\n", "<br/>")
 
-        story.append(Paragraph(f"<b>{role}:</b><br/>{text}", styles["Normal"]))
-        story.append(Spacer(1, 10))
+        report.append(Paragraph(f"<b>{role}:</b><br/>{text}", styles["Normal"]))
+        report.append(Spacer(1, 10))
 
     doc = SimpleDocTemplate(filename, pagesize=A4)
-    doc.build(story)
+    doc.build(report)
 
     return filename
 
