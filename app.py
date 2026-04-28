@@ -173,9 +173,12 @@ def generate_viva_pdf(chat_history, filename="viva.pdf"):
     styles = getSampleStyleSheet()
     report = []
     
-    date_str = datetime.now().strftime("%d %B %Y, %H:%M")
     report.append(Paragraph("AI Viva Transcript", styles["Title"]))
     report.append(Spacer(1, 12))
+    
+    date_str = datetime.now().strftime("%d %B %Y, %H:%M")
+    story.append(Paragraph(f"<b>Date:</b> {date_str}", styles["Normal"]))
+    story.append(Spacer(1, 20))
 
     for msg in chat_history:
         role = "Student" if msg["role"] == "user" else "Examiner"
