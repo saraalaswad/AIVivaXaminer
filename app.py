@@ -68,7 +68,7 @@ EVALUATION_FRAMEWORK = {
 # PROMPTS
 # --------------------------------------------------
 PROMPT_TEMPLATE = """
-You are an experienced academic professor conducting a formal undergraduate viva assessment.
+You are an experienced academic professor conducting a formal undergraduate viva.
 
 CURRENT CATEGORY: {current_category}
 
@@ -118,7 +118,7 @@ chain = LLMChain(llm=llm, prompt=prompt)
 eval_chain = LLMChain(llm=eval_llm, prompt=eval_prompt)
 
 # --------------------------------------------------
-# JSON FIX
+# JSON CLEANING
 # --------------------------------------------------
 def clean_json_output(text):
     text = re.sub(r"```json|```", "", text)
@@ -127,7 +127,7 @@ def clean_json_output(text):
 
 def evaluate_answer(question, answer):
     raw = eval_chain.run(
-        framework=EVALUATION_FRAMEWORK,
+        framework=json.dumps(EVALUATION_FRAMEWORK, indent=2),  # ✅ FIX
         question=question,
         answer=answer
     )
@@ -175,25 +175,32 @@ def generate_pdf(chat, evaluations):
     report.append(Paragraph("AI Viva Report", styles["Title"]))
     report.append(Spacer(1, 12))
 
+    report.append(Paragraph("Transcript", styles["Heading2"]))
+    report.append(Spacer(1, 10))
+
     for m in chat:
         role = "Student" if m["role"] == "user" else "Examiner"
         report.append(Paragraph(f"<b>{role}:</b> {m['content']}", styles["Normal"]))
+        report.append(Spacer(1, 6))
 
     report.append(Spacer(1, 20))
+    report.append(Paragraph("Evaluation", styles["Heading2"]))
 
     for e in evaluations:
         report.append(Paragraph(f"<b>Q:</b> {e['question']}", styles["Normal"]))
         report.append(Paragraph(f"<b>A:</b> {e['answer']}", styles["Normal"]))
 
-        if "overall_score" in e["evaluation"]:
-            report.append(Paragraph(f"Score: {e['evaluation']['overall_score']}", styles["Normal"]))
+        ev = e["evaluation"]
 
-        if "feedback" in e["evaluation"]:
-            report.append(Paragraph(f"Feedback: {e['evaluation']['feedback']}", styles["Normal"]))
+        if "overall_score" in ev:
+            report.append(Paragraph(f"Score: {ev['overall_score']}", styles["Normal"]))
+
+        if "feedback" in ev:
+            report.append(Paragraph(f"Feedback: {ev['feedback']}", styles["Normal"]))
 
         report.append(Spacer(1, 10))
 
-    file = "report.pdf"
+    file = "viva_report.pdf"
     doc = SimpleDocTemplate(file, pagesize=A4)
     doc.build(report)
 
@@ -210,11 +217,11 @@ def main():
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    user_input = st.chat_input("Enter your answer...")
-
     for m in st.session_state.messages:
         with st.chat_message(m["role"]):
             st.markdown(m["content"])
+
+    user_input = st.chat_input("Enter your answer...")
 
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
@@ -229,11 +236,11 @@ def main():
 
         st.session_state.messages.append({"role": "assistant", "content": response})
 
-        # evaluation
+        # ✅ Evaluation
         evaluation = evaluate_answer(user_input, response)
 
         if "error" in evaluation:
-            st.error("Parsing failed")
+            st.error("⚠️ Evaluation parsing failed")
             st.code(evaluation["raw"])
 
         st.session_state.viva_state["evaluations"].append({
@@ -251,7 +258,7 @@ def main():
         )
 
         with open(file, "rb") as f:
-            st.download_button("Download", f, file_name="report.pdf")
+            st.download_button("Download PDF", f, file_name="viva_report.pdf")
 
 if __name__ == "__main__":
     main()
