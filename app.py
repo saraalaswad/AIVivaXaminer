@@ -175,7 +175,7 @@ def generate_pdf(chat, evaluations):
     # EVALUATION (SAFE SKIP FIRST)
     # -----------------------
     report.append(Spacer(1, 20))
-    report.append(Paragraph("Evaluation", styles["Heading2"])
+    report.append(Paragraph("Evaluation", styles["Heading2"]))
 
     total = 0
     count = 0
