@@ -125,7 +125,7 @@ Retrieved Knowledge:
 ----------------------------------------
 TASK
 ----------------------------------------
-Generate ONE viva question strictly for the current category.
+Using {message} and {best_practice}, generate ONE viva question strictly for the current category.
 """
 
 prompt = PromptTemplate(
