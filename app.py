@@ -296,7 +296,7 @@ def generate_pdf(chat, evaluations):
         avg = total / count
         report.append(Paragraph(f"<b>Final Average Score: {avg:.2f}</b>", styles["Heading2"]))
 
-    file = "viva_report.pdf"
+    pdf_file = "viva_report.pdf"
     doc = SimpleDocTemplate(pdf_file, pagesize=A4)
     doc.build(report)
 
