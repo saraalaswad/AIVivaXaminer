@@ -164,11 +164,13 @@ Return ONLY valid JSON:
 RUBRIC:
 {json.dumps(EVALUATION_FRAMEWORK, indent=2)}
 
+Answer:
+{answer}
+
 Question:
 {question}
 
-Answer:
-{answer}
+
 """
 
     response = eval_llm.predict(prompt)
