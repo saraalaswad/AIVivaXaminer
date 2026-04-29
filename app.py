@@ -450,8 +450,8 @@ def main():
             st.session_state.viva_state["skip_first"] = False
         else:
             st.session_state.viva_state.setdefault("evaluations", []).append({
-                "question": user_input,
-                "answer": response
+                "answer": user_input,
+                "question": response
             })
 
         st.rerun()
