@@ -453,6 +453,8 @@ def main():
         # UPDATE STATE FIRST (BEFORE RERUN)
         # --------------------------------------------------
         update_state(user_input)
+
+        st.session_state.messages.append({"role": "assistant", "content": response})
         
         # --------------------------------------------------
         # SKIP FIRST EVALUATION ONLY
@@ -462,7 +464,7 @@ def main():
         else:
             st.session_state.viva_state.setdefault("evaluations", []).append(qa_pair)
         
-        st.session_state.messages.append({"role": "assistant", "content": response})
+        
         
         # --------------------------------------------------
         # NOW SAFE TO RERUN
