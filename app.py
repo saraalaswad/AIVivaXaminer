@@ -441,8 +441,6 @@ def main():
 
             placeholder.markdown(text)
 
-        st.session_state.messages.append({"role": "assistant", "content": response})
-
         # --------------------------------------------------
         # STORE Q/A FIRST (ALWAYS SAFE)
         # --------------------------------------------------
