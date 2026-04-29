@@ -83,7 +83,7 @@ prompt = PromptTemplate(
 chain = LLMChain(llm=llm, prompt=prompt)
 
 # --------------------------------------------------
-# CLEAN JSON
+# JSON CLEANING
 # --------------------------------------------------
 def clean_json_output(text):
     text = re.sub(r"```json|```", "", text)
@@ -91,17 +91,20 @@ def clean_json_output(text):
     return match.group(0) if match else text
 
 # --------------------------------------------------
-# SINGLE EVALUATION FUNCTION
+# EVALUATION
 # --------------------------------------------------
 def evaluate_answer(question, answer):
     prompt = f"""
-You are a PhD viva examiner.
-
-Return ONLY valid JSON:
+You MUST return ONLY valid JSON.
 
 {{
+  "scores": {{
+    "Problem Definition": {{
+      "Coherence": 0-10
+    }}
+  }},
   "overall_score": 0-100,
-  "feedback": "string"
+  "feedback": "text"
 }}
 
 RUBRIC:
@@ -110,7 +113,7 @@ RUBRIC:
 Question:
 {question}
 
-Answer:
+Student Answer:
 {answer}
 """
 
@@ -120,7 +123,10 @@ Answer:
     try:
         return json.loads(cleaned)
     except:
-        return {"error": "parse_failed", "raw": response}
+        return {
+            "error": "Parsing failed",
+            "raw": response
+        }
 
 # --------------------------------------------------
 # STATE
@@ -129,7 +135,8 @@ def init_state():
     if "viva_state" not in st.session_state:
         st.session_state.viva_state = {
             "current_category_index": 1,
-            "evaluations": []
+            "evaluations": [],
+            "skip_first_evaluation": True   # ✅ KEY FIX
         }
 
 # --------------------------------------------------
@@ -149,40 +156,15 @@ def get_current_category():
     return CATEGORIES[st.session_state.viva_state["current_category_index"] - 1]
 
 # --------------------------------------------------
-# PDF + BATCH EVALUATION
-# --------------------------------------------------
-def batch_evaluate(evaluations):
-    results = []
-
-    for item in evaluations:
-        question = item["question"]
-        answer = item["answer"]
-
-        eval_result = evaluate_answer(question, answer)
-
-        results.append({
-            **item,
-            "evaluation": eval_result
-        })
-
-    return results
-
-# --------------------------------------------------
-# PDF GENERATION
+# PDF
 # --------------------------------------------------
 def generate_pdf(chat, evaluations):
-
-    evaluated = batch_evaluate(evaluations)
-
     styles = getSampleStyleSheet()
     report = []
 
     report.append(Paragraph("AI Viva Report", styles["Title"]))
     report.append(Spacer(1, 12))
 
-    # -----------------------------
-    # Transcript
-    # -----------------------------
     report.append(Paragraph("Transcript", styles["Heading2"]))
     report.append(Spacer(1, 10))
 
@@ -191,37 +173,24 @@ def generate_pdf(chat, evaluations):
         report.append(Paragraph(f"<b>{role}:</b> {m['content']}", styles["Normal"]))
         report.append(Spacer(1, 6))
 
-    # -----------------------------
-    # Evaluation
-    # -----------------------------
     report.append(Spacer(1, 20))
     report.append(Paragraph("Evaluation", styles["Heading2"]))
 
-    total = 0
-    count = 0
-
-    for e in evaluated:
-        ev = e["evaluation"]
-
+    for e in evaluations:
         report.append(Paragraph(f"<b>Q:</b> {e['question']}", styles["Normal"]))
         report.append(Paragraph(f"<b>A:</b> {e['answer']}", styles["Normal"]))
 
-        if "overall_score" in ev:
-            report.append(Paragraph(f"Score: {ev['overall_score']}", styles["Normal"]))
-            total += ev["overall_score"]
-            count += 1
+        ev = e["evaluation"]
 
-        if "feedback" in ev:
-            report.append(Paragraph(f"Feedback: {ev['feedback']}", styles["Normal"]))
+        if "skipped" in ev:
+            report.append(Paragraph("Evaluation: Skipped (first response)", styles["Normal"]))
+        else:
+            if "overall_score" in ev:
+                report.append(Paragraph(f"Score: {ev['overall_score']}", styles["Normal"]))
+            if "feedback" in ev:
+                report.append(Paragraph(f"Feedback: {ev['feedback']}", styles["Normal"]))
 
         report.append(Spacer(1, 10))
-
-    # -----------------------------
-    # FINAL SCORE
-    # -----------------------------
-    if count > 0:
-        avg = total / count
-        report.append(Paragraph(f"<b>Final Average Score: {avg:.2f}</b>", styles["Heading2"]))
 
     file = "viva_report.pdf"
     doc = SimpleDocTemplate(file, pagesize=A4)
@@ -233,25 +202,19 @@ def generate_pdf(chat, evaluations):
 # APP
 # --------------------------------------------------
 def main():
-    st.title("🎓 AI Viva Examiner (PhD-Level Batch Evaluation)")
+    st.title("🎓 AI Viva Examiner")
 
     init_state()
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # -----------------------------
-    # DISPLAY CHAT
-    # -----------------------------
     for m in st.session_state.messages:
         with st.chat_message(m["role"]):
             st.markdown(m["content"])
 
     user_input = st.chat_input("Enter your answer...")
 
-    # -----------------------------
-    # VIVA FLOW (NO EVALUATION HERE)
-    # -----------------------------
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
 
@@ -265,17 +228,27 @@ def main():
 
         st.session_state.messages.append({"role": "assistant", "content": response})
 
-        # ✅ ONLY STORE (NO EVALUATION)
+        # --------------------------------------------------
+        # ✅ SKIP FIRST EVALUATION FIX
+        # --------------------------------------------------
+        if st.session_state.viva_state["skip_first_evaluation"]:
+            evaluation = {"skipped": True, "reason": "First input not evaluated"}
+            st.session_state.viva_state["skip_first_evaluation"] = False
+        else:
+            evaluation = evaluate_answer(user_input, response)
+
+        if "error" in evaluation:
+            st.error("⚠️ Evaluation parsing failed")
+            st.code(evaluation["raw"])
+
         st.session_state.viva_state["evaluations"].append({
             "question": user_input,
-            "answer": response
+            "answer": response,
+            "evaluation": evaluation
         })
 
         st.rerun()
 
-    # -----------------------------
-    # PDF GENERATION (TRIGGERS EVALUATION)
-    # -----------------------------
     if st.button("Generate PDF"):
         file = generate_pdf(
             st.session_state.messages,
