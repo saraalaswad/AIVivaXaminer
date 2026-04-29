@@ -2,8 +2,6 @@ import streamlit as st
 import time
 from datetime import datetime
 from dotenv import load_dotenv
-import json
-import re
 
 from langchain.document_loaders import CSVLoader
 from langchain.vectorstores import FAISS
@@ -22,12 +20,19 @@ from reportlab.lib.styles import getSampleStyleSheet
 load_dotenv()
 
 # --------------------------------------------------
+# LOGIN
+# --------------------------------------------------
+EXAMINER_USERNAME = "examiner"
+EXAMINER_PASSWORD = "1234"
+
+# --------------------------------------------------
 # VECTOR DB
 # --------------------------------------------------
 @st.cache_resource
 def initialize_vector_db():
     loader = CSVLoader(file_path="ts_response.csv")
     docs = loader.load()
+
     embeddings = OpenAIEmbeddings()
     return FAISS.from_documents(docs, embeddings)
 
@@ -41,7 +46,6 @@ def retrieve_info(query, k=3):
 # LLM
 # --------------------------------------------------
 llm = ChatOpenAI(model="gpt-4-turbo", temperature=0.7)
-eval_llm = ChatOpenAI(model="gpt-4-turbo", temperature=0)
 
 # --------------------------------------------------
 # RUBRIC
@@ -59,24 +63,74 @@ EVALUATION_FRAMEWORK = {
 }
 
 # --------------------------------------------------
-# PROMPT (VIVA QUESTION)
+# CATEGORY CONTROL (PYTHON IS NOW THE BOSS)
+# --------------------------------------------------
+CATEGORIES = [
+    "General Understanding",
+    "Technical Understanding",
+    "Methodology & Testing",
+    "Problem-Solving",
+    "System Thinking",
+    "Reflection & Limitations",
+    "Real-World Application"
+]
+
+def get_current_category():
+    idx = st.session_state.viva_state["current_category_index"] - 1
+    return CATEGORIES[idx]
+
+def advance_category():
+    st.session_state.viva_state["current_category_index"] += 1
+    st.session_state.viva_state["follow_up_allowed"] = False
+
+# --------------------------------------------------
+# PROMPT (LLM HAS NO CONTROL OVER FLOW)
 # --------------------------------------------------
 PROMPT_TEMPLATE = """
-You are an experienced academic professor conducting a viva.
+You are an experienced academic professor conducting a formal undergraduate viva assessment. Your role is to evaluate the student’s understanding of their research project through a structured, interactive oral examination.
 
-CURRENT CATEGORY: {current_category}
+The student will first share their research title. Based on this title, the student’s message, and established academic best practices, you will generate appropriate, rigorous, and supportive viva-style questions.
+Maintain a professional, supportive yet challenging tone, similar to that used by experienced viva examiners.
 
+
+----------------------------------------
+📊 CURRENT CATEGORY (DO NOT CHANGE)
+----------------------------------------
+{current_category}
+
+----------------------------------------
+RULES
+----------------------------------------
+• Ask ONLY ONE question
+• After each question, pause and wait for the student’s full response.
+• Then provide brief, constructive academic feedback or discussion before moving to the next question.
+• Your goal is to assess depth of understanding, critical thinking, and ability to justify decisions, while guiding the student to refine and articulate their ideas clearly.
+• Do NOT repeat previous topics
+• Do NOT ask overview/problem unless category is General Understanding
+• Keep tone formal and academic
+• Do NOT add explanations
+
+----------------------------------------
+CONTEXT
+----------------------------------------
 Student Answer:
 {message}
 
 Retrieved Knowledge:
 {best_practice}
 
-Ask ONE question only.
+----------------------------------------
+TASK
+----------------------------------------
+Generate ONE viva question strictly for the current category.
 """
 
 prompt = PromptTemplate(
-    input_variables=["message", "best_practice", "current_category"],
+    input_variables=[
+        "message",
+        "best_practice",
+        "current_category"
+    ],
     template=PROMPT_TEMPLATE
 )
 
@@ -123,31 +177,51 @@ Answer:
         return {"error": "parse_failed", "raw": response}
 
 # --------------------------------------------------
-# STATE
+# STATE ENGINE (CRITICAL FIX)
 # --------------------------------------------------
 def init_state():
     if "viva_state" not in st.session_state:
         st.session_state.viva_state = {
             "current_category_index": 1,
+            "questions_asked_total": 0,
+            "questions_per_category": [0,0,0,0,0,0,0],
+            "follow_up_allowed": False,
             "evaluations": [],
             "skip_first": True   # ✅ IMPORTANT FIX
         }
 
-# --------------------------------------------------
-# CATEGORY
-# --------------------------------------------------
-CATEGORIES = [
-    "General Understanding",
-    "Technical Understanding",
-    "Methodology & Testing",
-    "Problem-Solving",
-    "System Thinking",
-    "Reflection & Limitations",
-    "Real-World Application"
-]
+def update_state(user_input):
+    state = st.session_state.viva_state
 
-def get_current_category():
-    return CATEGORIES[st.session_state.viva_state["current_category_index"] - 1]
+    state["questions_asked_total"] += 1
+
+    idx = state["current_category_index"] - 1
+    state["questions_per_category"][idx] += 1
+
+    # simple follow-up trigger
+    weak_words = ["not sure", "don't know", "unclear", "maybe"]
+
+    state["follow_up_allowed"] = any(w in user_input.lower() for w in weak_words)
+
+    # FORCE CATEGORY SHIFT (max 2 questions per category)
+    if state["questions_per_category"][idx] >= 2:
+        if state["current_category_index"] < 7:
+            advance_category()
+
+# --------------------------------------------------
+# RESPONSE GENERATION
+# --------------------------------------------------
+def generate_response(message):
+    best_practice = retrieve_info(message)
+    state = st.session_state.viva_state
+
+    response = chain.run(
+        message=message,
+        best_practice=best_practice,
+        current_category=get_current_category()
+    )
+
+    return response
 
 # --------------------------------------------------
 # BATCH EVALUATION
@@ -229,53 +303,147 @@ def generate_pdf(chat, evaluations):
 # APP
 # --------------------------------------------------
 def main():
-    st.title("🎓 AI Viva Examiner (Batch Evaluation Mode)")
+    st.set_page_config(page_title="AIVivaXaminer", page_icon="🤖")
+
+    st.title("AIVivaXaminer")
 
     init_state()
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
+    if "viva_active" not in st.session_state:
+        st.session_state.viva_active = True
+
+    if "examiner_logged_in" not in st.session_state:
+        st.session_state.examiner_logged_in = False
+
+    # ---------------- SIDEBAR ----------------
+    with st.sidebar:
+        st.header("🎛️ Examiner Panel")
+
+        # ---------------- LOGIN ----------------
+        if not st.session_state.examiner_logged_in:
+            st.subheader("🔐 Login")
+
+            username = st.text_input("Username", key="exam_user")
+            password = st.text_input("Password", type="password", key="exam_pass")
+
+            if st.button("Login"):
+                if username == EXAMINER_USERNAME and password == EXAMINER_PASSWORD:
+                    st.session_state.examiner_logged_in = True
+                    st.success("Logged in successfully")
+                    st.rerun()
+                else:
+                    st.error("Invalid credentials")
+
+            st.info("Login required for examiner controls.")
+
+        else:
+            st.success("Examiner Mode Active")
+
+            # ---------------- Category ----------------
+            st.subheader("📊 Current Category")
+            st.write(get_current_category())
+            st.divider()
+            
+            # ---------------- VIVA CONTROL ----------------
+            st.subheader("🎛️ Viva Control")
+
+            if st.session_state.viva_active:
+                if st.button("🛑 Stop Viva"):
+                    st.session_state.viva_active = False
+                    st.success("Viva stopped")
+                    st.rerun()
+            else:
+                st.info("Viva session ended")
+
+            st.divider()
+
+            # ---------------- EXPORT ----------------
+            st.subheader("📄 Export")
+
+            if st.session_state.messages and not st.session_state.viva_active:
+                if st.button("Generate PDF"):
+                    file = generate_pdf(
+                        st.session_state.messages,
+                        st.session_state.viva_state["evaluations"]
+                    )
+
+                    with open(pdf_file, "rb") as f:
+                        st.download_button(
+                            "⬇️ Download PDF",
+                            f,
+                            file_name="AIViva_Transcript.pdf",
+                            mime="application/pdf"
+                        )
+            else:
+                st.caption("Stop viva first to enable PDF")
+
+            st.divider()
+            # ---------------- SESSION ----------------
+            st.subheader("⚙️ Session")
+
+            if st.button("🔄 Reset Session"):
+                st.session_state.viva_state = {
+                    "current_category_index": 1,
+                    "questions_asked_total": 0,
+                    "questions_per_category": [0,0,0,0,0,0,0],
+                    "follow_up_allowed": False
+                }
+                st.session_state.messages = []
+                st.session_state.viva_active = True
+                st.success("Session reset")
+                st.rerun()
+
+            if st.button("🚪 Logout"):
+                st.session_state.examiner_logged_in = False
+                st.rerun()
+
+            # --------------------------------------------------
+            # FIX: SKIP FIRST INPUT COMPLETELY
+            # --------------------------------------------------
+            if st.session_state.viva_state.get("skip_first", True):
+                 st.session_state.viva_state["skip_first"] = False
+            else:
+                st.session_state.viva_state["evaluations"].append({
+                    "question": user_input,
+                    "answer": response
+            })
+
+                st.rerun()
+
+            
+
+    # ---------------- CHAT HISTORY ----------------
     for m in st.session_state.messages:
         with st.chat_message(m["role"]):
             st.markdown(m["content"])
 
-    user_input = st.chat_input("Enter your answer...")
+    user_input = st.chat_input("Enter your research title ...") if st.session_state.viva_active else None
 
     if user_input:
+        st.chat_message("user").markdown(user_input)
         st.session_state.messages.append({"role": "user", "content": user_input})
 
-        best = retrieve_info(user_input)
+        with st.chat_message("assistant"):
+            placeholder = st.empty()
 
-        response = chain.invoke({
-            "message": user_input,
-            "best_practice": best,
-            "current_category": get_current_category()
-        })["text"]
+            response = generate_response(user_input)
+
+            text = ""
+            for w in response.split():
+                text += w + " "
+                time.sleep(0.01)
+                placeholder.markdown(text + "▌")
+
+            placeholder.markdown(text)
 
         st.session_state.messages.append({"role": "assistant", "content": response})
 
-        # --------------------------------------------------
-        # FIX: SKIP FIRST INPUT COMPLETELY
-        # --------------------------------------------------
-        if st.session_state.viva_state.get("skip_first", True):
-            st.session_state.viva_state["skip_first"] = False
-        else:
-            st.session_state.viva_state["evaluations"].append({
-                "question": user_input,
-                "answer": response
-            })
+        # 🔥 CRITICAL FIX: UPDATE STATE HERE
+        update_state(user_input)
 
-        st.rerun()
-
-    if st.button("Generate PDF"):
-        file = generate_pdf(
-            st.session_state.messages,
-            st.session_state.viva_state["evaluations"]
-        )
-
-        with open(file, "rb") as f:
-            st.download_button("Download PDF", f, file_name="viva_report.pdf")
 
 if __name__ == "__main__":
     main()
