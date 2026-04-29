@@ -400,18 +400,6 @@ def main():
                 st.session_state.examiner_logged_in = False
                 st.rerun()
 
-            # --------------------------------------------------
-            # FIX: SKIP FIRST INPUT COMPLETELY
-            # --------------------------------------------------
-            if st.session_state.viva_state.get("skip_first", True):
-                 st.session_state.viva_state["skip_first"] = False
-            else:
-                st.session_state.viva_state["evaluations"].append({
-                    "question": user_input,
-                    "answer": response
-            })
-
-                st.rerun()
 
             
 
@@ -443,6 +431,19 @@ def main():
 
         # 🔥 CRITICAL FIX: UPDATE STATE HERE
         update_state(user_input)
+
+        # --------------------------------------------------
+        # FIX: SKIP FIRST INPUT COMPLETELY
+        # --------------------------------------------------
+        if st.session_state.viva_state.get("skip_first", True):
+            st.session_state.viva_state["skip_first"] = False
+        else:
+            st.session_state.viva_state["evaluations"].append({
+                "question": user_input,
+                "answer": response
+        })
+
+        st.rerun()
 
 
 if __name__ == "__main__":
