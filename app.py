@@ -228,12 +228,12 @@ def generate_response(message):
     best_practice = retrieve_info(message)
     state = st.session_state.viva_state
 
-    response = chain.run(
-        message=message,
-        best_practice=best_practice,
-        current_category=get_current_category()
-    )
-
+    response = chain.invoke({
+            "message": user_input,
+            "best_practice": best,
+            "current_category": get_current_category()
+        })["text"]
+    
     return response
 
 # --------------------------------------------------
