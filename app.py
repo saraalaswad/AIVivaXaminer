@@ -98,16 +98,16 @@ RULES
 ----------------------------------------
 CONTEXT
 ----------------------------------------
-Student Answer:
+Student’s Message:
 {message}
 
-Retrieved Knowledge:
+Best Practice Examples:
 {best_practice}
 
 ----------------------------------------
 TASK
 ----------------------------------------
-Generate ONE viva question strictly for the current category.
+Based on all the above, generate ONE viva question strictly for the current category.
 """
 
 prompt = PromptTemplate(
