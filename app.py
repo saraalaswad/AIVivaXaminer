@@ -249,7 +249,7 @@ def batch_evaluate(evaluations):
         ev = evaluate_answer(q, a)
 
         results.append({
-            *item,
+            **item,
             "evaluation": ev
         })
 
