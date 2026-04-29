@@ -211,6 +211,16 @@ def update_state(user_input):
         if state["current_category_index"] < 7:
             advance_category()
 
+def ensure_state():
+    if "viva_state" not in st.session_state:
+        st.session_state.viva_state = {}
+
+    if "evaluations" not in st.session_state.viva_state:
+        st.session_state.viva_state["evaluations"] = []
+
+    if "skip_first" not in st.session_state.viva_state:
+        st.session_state.viva_state["skip_first"] = True
+
 # --------------------------------------------------
 # RESPONSE GENERATION
 # --------------------------------------------------
@@ -311,6 +321,7 @@ def main():
     st.title("AIVivaXaminer")
 
     init_state()
+    ensure_state()
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -431,17 +442,17 @@ def main():
             placeholder.markdown(text)
 
         st.session_state.messages.append({"role": "assistant", "content": response})
-        
+
         # --------------------------------------------------
         # FIX: SKIP FIRST INPUT COMPLETELY
         # --------------------------------------------------
         if st.session_state.viva_state.get("skip_first", True):
             st.session_state.viva_state["skip_first"] = False
         else:
-            st.session_state.viva_state["evaluations"].append({
+            st.session_state.viva_state.setdefault("evaluations", []).append({
                 "question": user_input,
                 "answer": response
-        })
+            })
 
         st.rerun()
 
