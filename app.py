@@ -431,10 +431,7 @@ def main():
             placeholder.markdown(text)
 
         st.session_state.messages.append({"role": "assistant", "content": response})
-
-        # 🔥 CRITICAL FIX: UPDATE STATE HERE
-        update_state(user_input)
-
+        
         # --------------------------------------------------
         # FIX: SKIP FIRST INPUT COMPLETELY
         # --------------------------------------------------
@@ -447,6 +444,11 @@ def main():
         })
 
         st.rerun()
+
+        # 🔥 CRITICAL FIX: UPDATE STATE HERE
+        update_state(user_input)
+
+
 
 
 if __name__ == "__main__":
