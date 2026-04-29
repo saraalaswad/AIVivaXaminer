@@ -243,8 +243,9 @@ def batch_evaluate(evaluations):
     results = []
 
     for item in evaluations:
-        q = item["question"]
         a = item["answer"]
+        q = item["question"]
+        
 
         ev = evaluate_answer(q, a)
 
