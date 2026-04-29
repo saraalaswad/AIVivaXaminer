@@ -1,10 +1,7 @@
 import streamlit as st
-import time
-from datetime import datetime
-from dotenv import load_dotenv
 import json
 import re
-import os
+from dotenv import load_dotenv
 
 from langchain.document_loaders import CSVLoader
 from langchain.vectorstores import FAISS
@@ -27,10 +24,6 @@ load_dotenv()
 # --------------------------------------------------
 @st.cache_resource
 def initialize_vector_db():
-    if not os.path.exists("ts_response.csv"):
-        st.error("CSV file not found: ts_response.csv")
-        st.stop()
-
     loader = CSVLoader(file_path="ts_response.csv")
     docs = loader.load()
     embeddings = OpenAIEmbeddings()
@@ -49,24 +42,11 @@ llm = ChatOpenAI(model="gpt-4-turbo", temperature=0.7)
 eval_llm = ChatOpenAI(model="gpt-4-turbo", temperature=0)
 
 # --------------------------------------------------
-# RUBRIC
-# --------------------------------------------------
-EVALUATION_FRAMEWORK = {
-    "Problem Definition": ["Coherence","Relevance","Completeness","Engagement","Accuracy","Creativity","Fluency","Clarity","Descriptiveness","Informativeness"],
-    "Literature Search": ["Coherence","Relevance","Completeness","Accuracy","Creativity","Clarity","Descriptiveness","Informativeness"],
-    "Solution Design": ["Coherence","Relevance","Completeness","Accuracy","Creativity","Fluency","Clarity","Descriptiveness","Informativeness"],
-    "Result & Analysis": ["Coherence","Relevance","Completeness","Accuracy","Creativity","Fluency","Clarity","Descriptiveness","Informativeness"],
-    "Implementation / Product": ["Functionality","Real-world impact","User engagement","Performance"],
-    "References & Citation": ["Structure","Completeness","Accuracy","Clarity","Formatting"],
-    "Teamwork": ["Participation","Roles","Collaboration","Communication","Transparency"],
-    "Documentation and Format": ["Structure","Coverage","Accuracy","Clarity","Presentation"],
-    "Organization & Delivery": ["Delivery","Clarity","Engagement","Communication","Creativity"]
-}
-
-# --------------------------------------------------
 # PROMPT
 # --------------------------------------------------
-PROMPT_TEMPLATE = """
+prompt = PromptTemplate(
+    input_variables=["message", "best_practice", "current_category"],
+    template="""
 You are an academic viva examiner.
 
 Category: {current_category}
@@ -77,142 +57,87 @@ Student Answer:
 Context:
 {best_practice}
 
-Ask ONE clear follow-up question only.
+Ask ONE viva question.
 """
-
-prompt = PromptTemplate(
-    input_variables=["message", "best_practice", "current_category"],
-    template=PROMPT_TEMPLATE
 )
 
 chain = LLMChain(llm=llm, prompt=prompt)
 
 # --------------------------------------------------
-# CLEAN JSON
+# STATE
 # --------------------------------------------------
-def clean_json_output(text):
-    text = re.sub(r"```json|```", "", text)
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    return match.group(0) if match else text
+def init_state():
+    if "viva_state" not in st.session_state:
+        st.session_state.viva_state = {
+            "started": False,
+            "evaluations": []
+        }
 
 # --------------------------------------------------
 # EVALUATION
 # --------------------------------------------------
 def evaluate_answer(question, answer):
     prompt = f"""
-Return ONLY valid JSON:
-
+Return ONLY JSON:
 {{
-  "overall_score": 0,
-  "feedback": "",
-  "scores": {{}}
+  "overall_score": 0-100,
+  "feedback": "string"
 }}
 
-Rubric:
-{json.dumps(EVALUATION_FRAMEWORK, indent=2)}
-
-Question:
-{question}
-
-Answer:
-{answer}
+Q: {question}
+A: {answer}
 """
 
-    response = eval_llm.predict(prompt)
-    cleaned = clean_json_output(response)
+    res = eval_llm.predict(prompt)
 
     try:
-        return json.loads(cleaned)
+        return json.loads(res)
     except:
-        return {"error": "Parsing failed", "raw": response}
+        return {"error": "parse_failed", "raw": res}
 
 # --------------------------------------------------
-# STATE (FIXED)
-# --------------------------------------------------
-def init_state():
-    if "viva_state" not in st.session_state:
-        st.session_state.viva_state = {}
-
-    if "current_category_index" not in st.session_state.viva_state:
-        st.session_state.viva_state["current_category_index"] = 1
-
-    if "evaluations" not in st.session_state.viva_state:
-        st.session_state.viva_state["evaluations"] = []
-
-    if "skip_first_evaluation" not in st.session_state.viva_state:
-        st.session_state.viva_state["skip_first_evaluation"] = True
-
-# --------------------------------------------------
-# CATEGORY
-# --------------------------------------------------
-CATEGORIES = [
-    "General Understanding",
-    "Technical Understanding",
-    "Methodology & Testing",
-    "Problem-Solving",
-    "System Thinking",
-    "Reflection & Limitations",
-    "Real-World Application"
-]
-
-def get_current_category():
-    return CATEGORIES[st.session_state.viva_state["current_category_index"] - 1]
-
-# --------------------------------------------------
-# PDF GENERATION (FIXED + FULL EVAL INCLUDED)
+# PDF
 # --------------------------------------------------
 def generate_pdf(chat, evaluations):
+
     styles = getSampleStyleSheet()
     report = []
 
     report.append(Paragraph("AI Viva Report", styles["Title"]))
     report.append(Spacer(1, 12))
 
-    # --------------------------
-    # TRANSCRIPT
-    # --------------------------
     report.append(Paragraph("Transcript", styles["Heading2"]))
-    report.append(Spacer(1, 10))
 
     for m in chat:
         role = "Student" if m["role"] == "user" else "Examiner"
-        report.append(Paragraph(f"<b>{role}:</b> {m['content']}", styles["Normal"]))
+        report.append(Paragraph(f"{role}: {m['content']}", styles["Normal"]))
         report.append(Spacer(1, 6))
 
-    # --------------------------
-    # EVALUATION
-    # --------------------------
     report.append(Spacer(1, 20))
     report.append(Paragraph("Evaluation", styles["Heading2"]))
-    report.append(Spacer(1, 10))
 
-    for idx, e in enumerate(evaluations, 1):
-        report.append(Paragraph(f"<b>Q{idx}:</b> {e.get('question','')}", styles["Normal"]))
-        report.append(Paragraph(f"<b>A{idx}:</b> {e.get('answer','')}", styles["Normal"]))
-        report.append(Spacer(1, 5))
+    total = 0
+    count = 0
 
-        ev = e.get("evaluation", {}) or {}
+    for e in evaluations:
+        ev = e["evaluation"]
 
-        if ev.get("skipped"):
-            report.append(Paragraph("Evaluation: Skipped (first input)", styles["Normal"]))
+        report.append(Paragraph(f"Q: {e['question']}", styles["Normal"]))
+        report.append(Paragraph(f"A: {e['answer']}", styles["Normal"]))
 
-        elif "error" in ev:
-            report.append(Paragraph("Evaluation: Failed to parse model output", styles["Normal"]))
-            report.append(Paragraph(f"Raw: {ev.get('raw','')}", styles["Normal"]))
+        if "overall_score" in ev:
+            total += ev["overall_score"]
+            count += 1
+            report.append(Paragraph(f"Score: {ev['overall_score']}", styles["Normal"]))
 
-        else:
-            if "overall_score" in ev:
-                report.append(Paragraph(f"<b>Score:</b> {ev['overall_score']}/100", styles["Normal"]))
+        if "feedback" in ev:
+            report.append(Paragraph(f"Feedback: {ev['feedback']}", styles["Normal"]))
 
-            if "feedback" in ev:
-                report.append(Paragraph(f"<b>Feedback:</b> {ev['feedback']}", styles["Normal"]))
+        report.append(Spacer(1, 10))
 
-            if "scores" in ev and isinstance(ev["scores"], dict):
-                report.append(Paragraph("<b>Rubric Breakdown:</b>", styles["Normal"]))
-                for k, v in ev["scores"].items():
-                    report.append(Paragraph(f"• {k}: {v}", styles["Normal"]))
-
-        report.append(Spacer(1, 12))
+    if count > 0:
+        avg = total / count
+        report.append(Paragraph(f"Final Score: {avg:.2f}", styles["Heading2"]))
 
     file = "viva_report.pdf"
     doc = SimpleDocTemplate(file, pagesize=A4)
@@ -224,6 +149,7 @@ def generate_pdf(chat, evaluations):
 # APP
 # --------------------------------------------------
 def main():
+
     st.title("🎓 AI Viva Examiner")
 
     init_state()
@@ -238,6 +164,7 @@ def main():
     user_input = st.chat_input("Enter your answer...")
 
     if user_input:
+
         st.session_state.messages.append({"role": "user", "content": user_input})
 
         best = retrieve_info(user_input)
@@ -245,30 +172,30 @@ def main():
         response = chain.invoke({
             "message": user_input,
             "best_practice": best,
-            "current_category": get_current_category()
-        })
+            "current_category": "General Understanding"
+        })["text"]
 
-        response_text = response["text"] if isinstance(response, dict) else response
+        st.session_state.messages.append({"role": "assistant", "content": response})
 
-        st.session_state.messages.append({"role": "assistant", "content": response_text})
+        state = st.session_state.viva_state
 
-        # --------------------------
-        # SKIP FIRST EVALUATION
-        # --------------------------
-        if st.session_state.viva_state.get("skip_first_evaluation", True):
-            evaluation = {"skipped": True}
-            st.session_state.viva_state["skip_first_evaluation"] = False
+        # --------------------------------------------------
+        # ✅ KEY FIX: NEVER STORE FIRST INPUT FOR EVALUATION
+        # --------------------------------------------------
+        if not state["started"]:
+            state["started"] = True
         else:
-            evaluation = evaluate_answer(user_input, response_text)
-
-        st.session_state.viva_state["evaluations"].append({
-            "question": user_input,
-            "answer": response_text,
-            "evaluation": evaluation
-        })
+            state["evaluations"].append({
+                "question": response,
+                "answer": user_input,
+                "evaluation": evaluate_answer(response, user_input)
+            })
 
         st.rerun()
 
+    # --------------------------------------------------
+    # PDF
+    # --------------------------------------------------
     if st.button("Generate PDF"):
         file = generate_pdf(
             st.session_state.messages,
