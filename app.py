@@ -460,7 +460,6 @@ def main():
         if st.session_state.viva_state.get("skip_first", True):
             st.session_state.viva_state["skip_first"] = False
         else:
-            
             st.session_state.viva_state.setdefault("evaluations", []).append(qa_pair)
         
         st.session_state.messages.append({"role": "assistant", "content": response})
