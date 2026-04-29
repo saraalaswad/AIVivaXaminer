@@ -4,6 +4,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 import json
 import re
+import os
 
 from langchain.document_loaders import CSVLoader
 from langchain.vectorstores import FAISS
@@ -26,6 +27,10 @@ load_dotenv()
 # --------------------------------------------------
 @st.cache_resource
 def initialize_vector_db():
+    if not os.path.exists("ts_response.csv"):
+        st.error("CSV file not found: ts_response.csv")
+        st.stop()
+
     loader = CSVLoader(file_path="ts_response.csv")
     docs = loader.load()
     embeddings = OpenAIEmbeddings()
@@ -53,9 +58,9 @@ EVALUATION_FRAMEWORK = {
     "Result & Analysis": ["Coherence","Relevance","Completeness","Accuracy","Creativity","Fluency","Clarity","Descriptiveness","Informativeness"],
     "Implementation / Product": ["Seamless functionality","Real-world significance","User engagement","Functionality"],
     "References & Citation": ["Organized structure","Complete citation","Accurate referencing","Clarity in citation format","Descriptive citations","Informative references"],
-    "Teamwork": ["Active participation","Clear roles assigned","Professional collaboration","Transparent roles","Keeps team informed"],
-    "Documentation and Format": ["Organized structure","Full coverage of content","Accurate documentation","Unique presentation style","Smooth report structure","Clear writing","Rich content","Informs the audience"],
-    "Organization & Delivery": ["Logical and engaging delivery","Clear connection to objectives","Fully developed presentation","Audience interaction","Accurate communication","Creative visuals","Smooth delivery","Clear communication","Descriptive visuals","Clear and valuable content"]
+    "Teamwork": ["Active participation","Clear roles","Professional collaboration","Transparency","Communication"],
+    "Documentation and Format": ["Structure","Coverage","Accuracy","Presentation","Clarity","Content richness"],
+    "Organization & Delivery": ["Delivery","Clarity","Engagement","Communication","Creativity","Visuals"]
 }
 
 # --------------------------------------------------
@@ -72,7 +77,7 @@ Student Answer:
 Retrieved Knowledge:
 {best_practice}
 
-Ask ONE question only.
+Ask ONE clear follow-up question only.
 """
 
 prompt = PromptTemplate(
@@ -95,16 +100,12 @@ def clean_json_output(text):
 # --------------------------------------------------
 def evaluate_answer(question, answer):
     prompt = f"""
-You MUST return ONLY valid JSON.
+Return ONLY valid JSON.
 
 {{
-  "scores": {{
-    "Problem Definition": {{
-      "Coherence": 0-10
-    }}
-  }},
-  "overall_score": 0-100,
-  "feedback": "text"
+  "scores": {{}},
+  "overall_score": 0,
+  "feedback": ""
 }}
 
 RUBRIC:
@@ -113,7 +114,7 @@ RUBRIC:
 Question:
 {question}
 
-Student Answer:
+Answer:
 {answer}
 """
 
@@ -123,10 +124,7 @@ Student Answer:
     try:
         return json.loads(cleaned)
     except:
-        return {
-            "error": "Parsing failed",
-            "raw": response
-        }
+        return {"error": "Parsing failed", "raw": response}
 
 # --------------------------------------------------
 # STATE
@@ -136,7 +134,7 @@ def init_state():
         st.session_state.viva_state = {
             "current_category_index": 1,
             "evaluations": [],
-            "skip_first_evaluation": True   # ✅ KEY FIX
+            "skip_first_evaluation": True
         }
 
 # --------------------------------------------------
@@ -156,7 +154,7 @@ def get_current_category():
     return CATEGORIES[st.session_state.viva_state["current_category_index"] - 1]
 
 # --------------------------------------------------
-# PDF
+# PDF GENERATION
 # --------------------------------------------------
 def generate_pdf(chat, evaluations):
     styles = getSampleStyleSheet()
@@ -177,13 +175,15 @@ def generate_pdf(chat, evaluations):
     report.append(Paragraph("Evaluation", styles["Heading2"]))
 
     for e in evaluations:
-        report.append(Paragraph(f"<b>Q:</b> {e['question']}", styles["Normal"]))
-        report.append(Paragraph(f"<b>A:</b> {e['answer']}", styles["Normal"]))
+        report.append(Paragraph(f"<b>Q:</b> {e.get('question','')}", styles["Normal"]))
+        report.append(Paragraph(f"<b>A:</b> {e.get('answer','')}", styles["Normal"]))
 
-        ev = e["evaluation"]
+        ev = e.get("evaluation", {}) or {}
 
-        if "skipped" in ev:
+        if ev.get("skipped"):
             report.append(Paragraph("Evaluation: Skipped (first response)", styles["Normal"]))
+        elif "error" in ev:
+            report.append(Paragraph("Evaluation: Failed to parse", styles["Normal"]))
         else:
             if "overall_score" in ev:
                 report.append(Paragraph(f"Score: {ev['overall_score']}", styles["Normal"]))
@@ -224,26 +224,24 @@ def main():
             "message": user_input,
             "best_practice": best,
             "current_category": get_current_category()
-        })["text"]
+        })
 
-        st.session_state.messages.append({"role": "assistant", "content": response})
+        response_text = response["text"] if isinstance(response, dict) else response
+
+        st.session_state.messages.append({"role": "assistant", "content": response_text})
 
         # --------------------------------------------------
-        # ✅ SKIP FIRST EVALUATION FIX
+        # SKIP FIRST EVALUATION FIX
         # --------------------------------------------------
         if st.session_state.viva_state["skip_first_evaluation"]:
-            evaluation = {"skipped": True, "reason": "First input not evaluated"}
+            evaluation = {"skipped": True}
             st.session_state.viva_state["skip_first_evaluation"] = False
         else:
-            evaluation = evaluate_answer(user_input, response)
-
-        if "error" in evaluation:
-            st.error("⚠️ Evaluation parsing failed")
-            st.code(evaluation["raw"])
+            evaluation = evaluate_answer(user_input, response_text)
 
         st.session_state.viva_state["evaluations"].append({
             "question": user_input,
-            "answer": response,
+            "answer": response_text,
             "evaluation": evaluation
         })
 
