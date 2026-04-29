@@ -51,22 +51,7 @@ llm = ChatOpenAI(model="gpt-4-turbo", temperature=0.7)
 eval_llm = ChatOpenAI(model="gpt-4-turbo", temperature=0)
 
 # --------------------------------------------------
-# RUBRIC
-# --------------------------------------------------
-EVALUATION_FRAMEWORK = {
-    "Problem Definition": ["logical structure of the problem","pertinence to objectives","thoroughness of definition","N/A","correct identification of issues","innovative problem framing","N/A","clear articulation of problem","detailed background","provides context"],
-    "Literature Search": ["logical flow of methods","clear connection to problem","comprehensive search","N/A","precision of sources","unique and novel sources","N/A","clear explanation of research", "detailed context and analysis", "explains literature thoroughly"],
-    "Solution Design": ["logical flow of methods","applicability of methods","comprehensive methodology","N/A","precision of methods","novel approaches","N/A","clear description of steps","detailed steps", "explains methods thoroughly"],
-    "Result & Analysis": ["logical interpretation of results","results aligned with objectives","depth of analysis","N/A","correct results and analysis","innovative insights","smooth presentation of analysis","clear explanation of results","detailed analysis", "insightful conclusions"],
-    "Implementation / Product": ["Seamless functionality","Real-world significance","User engagement","Functionality", "original solution", "N/A", "intuitive design", "visual and functional detail", "educates the user"],
-    "References & Citation": ["Organized structure", "N/A", "Complete citation", "N/A", "Accurate referencing", "N/A", "N/A", "Clarity in citation format","Descriptive citations","Informative references"],
-    "Teamwork": ["N/A", "N/A", "N/A", "Active participation","Clear roles assigned", "innovative team strategies", "Professional collaboration","Transparent roles", "explicit team documentation", "Keeps team informed"],
-    "Documentation and Format": ["Organized structure", "N/A", "Full coverage of content", "reader engagement", "Accurate documentation","Unique presentation style","Smooth report structure","Clear writing","Rich content","Informs the audience"],
-    "Organization & Delivery": ["Logical and engaging delivery","Clear connection to objectives","Fully developed presentation","Audience interaction","Accurate communication","Creative visuals","Smooth delivery","Clear communication","Descriptive visuals","Clear and valuable content"]
-}
-
-# --------------------------------------------------
-# CATEGORY CONTROL (PYTHON IS NOW THE BOSS)
+# CATEGORIES
 # --------------------------------------------------
 CATEGORIES = [
     "General Understanding",
@@ -78,402 +63,210 @@ CATEGORIES = [
     "Real-World Application"
 ]
 
-def get_current_category():
-    idx = st.session_state.viva_state["current_category_index"] - 1
-    return CATEGORIES[idx]
-
-def advance_category():
-    st.session_state.viva_state["current_category_index"] += 1
-    st.session_state.viva_state["follow_up_allowed"] = False
-
 # --------------------------------------------------
-# PROMPT (LLM HAS NO CONTROL OVER FLOW)
+# PROMPT
 # --------------------------------------------------
 PROMPT_TEMPLATE = """
-You are an experienced academic professor conducting a formal undergraduate viva assessment. Your role is to evaluate the student’s understanding of their research project through a structured, interactive oral examination.
+You are an experienced academic professor conducting a formal undergraduate viva.
 
-The student will first share their research title. Based on this title, the student’s message, and established academic best practices, you will generate appropriate, rigorous, and supportive viva-style questions.
-Maintain a professional, supportive yet challenging tone, similar to that used by experienced viva examiners.
-
-
-----------------------------------------
-📊 CURRENT CATEGORY (DO NOT CHANGE)
-----------------------------------------
+CURRENT CATEGORY:
 {current_category}
 
-----------------------------------------
-RULES
-----------------------------------------
-• Ask ONLY ONE question
-• After each question, pause and wait for the student’s full response.
-• Then provide brief, constructive academic feedback or discussion before moving to the next question.
-• Your goal is to assess depth of understanding, critical thinking, and ability to justify decisions, while guiding the student to refine and articulate their ideas clearly.
-• Do NOT repeat previous topics
-• Do NOT ask overview/problem unless category is General Understanding
-• Keep tone formal and academic
-• Do NOT add explanations
-
-----------------------------------------
-CONTEXT
-----------------------------------------
 Student Answer:
 {message}
 
 Retrieved Knowledge:
 {best_practice}
 
-----------------------------------------
-TASK
-----------------------------------------
-Generate ONE viva question strictly for the current category.
+TASK:
+Ask ONE clear viva question for the category.
 """
 
 prompt = PromptTemplate(
-    input_variables=[
-        "message",
-        "best_practice",
-        "current_category"
-    ],
+    input_variables=["message", "best_practice", "current_category"],
     template=PROMPT_TEMPLATE
 )
 
 chain = LLMChain(llm=llm, prompt=prompt)
 
 # --------------------------------------------------
-# CLEAN JSON
+# RESPONSE
+# --------------------------------------------------
+def generate_response(message, category):
+    best_practice = retrieve_info(message)
+
+    return chain.run(
+        message=message,
+        best_practice=best_practice,
+        current_category=category
+    )
+
+# --------------------------------------------------
+# EVALUATION
 # --------------------------------------------------
 def clean_json_output(text):
     text = re.sub(r"```json|```", "", text)
     match = re.search(r"\{.*\}", text, re.DOTALL)
     return match.group(0) if match else text
 
-# --------------------------------------------------
-# FINAL EVALUATION (USED ONLY IN PDF)
-# --------------------------------------------------
 def evaluate_answer(question, answer):
     prompt = f"""
-You are an undergraduate viva examiner.
+Return JSON:
+{{"overall_score":0-100,"feedback":"text"}}
 
-Return ONLY valid JSON:
-
-{{
-  "overall_score": 0-100,
-  "feedback": "string"
-}}
-
-RUBRIC:
-{json.dumps(EVALUATION_FRAMEWORK, indent=2)}
-
-Answer:
-{answer}
-
-Question:
-{question}
-
-
+Q:{question}
+A:{answer}
 """
-
     response = eval_llm.predict(prompt)
     cleaned = clean_json_output(response)
 
     try:
         return json.loads(cleaned)
     except:
-        return {"error": "parse_failed", "raw": response}
+        return {"error": response}
 
 # --------------------------------------------------
-# STATE ENGINE (CRITICAL FIX)
+# STATE MACHINE
 # --------------------------------------------------
 def init_state():
-    if "viva_state" not in st.session_state:
-        st.session_state.viva_state = {
-            "current_category_index": 1,
-            "questions_asked_total": 0,
-            "questions_per_category": [0,0,0,0,0,0,0],
-            "follow_up_allowed": False,
+    if "viva" not in st.session_state:
+        st.session_state.viva = {
+            "phase": "INIT",
+            "current_question": None,
+            "pending_answer": None,
+            "qa_pairs": [],
             "evaluations": [],
-            "skip_first": True   # ✅ IMPORTANT FIX
+            "question_count": 0,
+            "category_index": 0,
+            "skip_first_eval": True,
+            "research_title": None
         }
 
-def update_state(user_input):
-    state = st.session_state.viva_state
+def run_state_machine(user_input=None):
+    state = st.session_state.viva
 
-    state["questions_asked_total"] += 1
+    # INIT → store title
+    if state["phase"] == "INIT":
+        if user_input:
+            state["research_title"] = user_input
+            state["phase"] = "ASK"
 
-    idx = state["current_category_index"] - 1
-    state["questions_per_category"][idx] += 1
+    # ASK QUESTION
+    elif state["phase"] == "ASK":
+        base = state.get("pending_answer") or state["research_title"]
 
-    # simple follow-up trigger
-    weak_words = ["not sure", "don't know", "unclear", "maybe"]
+        q = generate_response(
+            base,
+            CATEGORIES[state["category_index"]]
+        )
 
-    state["follow_up_allowed"] = any(w in user_input.lower() for w in weak_words)
+        state["current_question"] = q
+        state["phase"] = "WAIT"
 
-    # FORCE CATEGORY SHIFT (max 2 questions per category)
-    if state["questions_per_category"][idx] >= 2:
-        if state["current_category_index"] < 7:
-            advance_category()
+    # WAIT ANSWER
+    elif state["phase"] == "WAIT":
+        if user_input:
+            state["pending_answer"] = user_input
+            state["phase"] = "EVAL"
 
-def ensure_state():
-    if "viva_state" not in st.session_state:
-        st.session_state.viva_state = {}
+    # EVALUATE
+    elif state["phase"] == "EVAL":
+        qa = {
+            "question": state["current_question"],
+            "answer": state["pending_answer"]
+        }
 
-    if "evaluations" not in st.session_state.viva_state:
-        st.session_state.viva_state["evaluations"] = []
+        state["qa_pairs"].append(qa)
 
-    if "skip_first" not in st.session_state.viva_state:
-        st.session_state.viva_state["skip_first"] = True
+        if state["skip_first_eval"]:
+            state["skip_first_eval"] = False
+        else:
+            state["evaluations"].append(qa)
 
-# --------------------------------------------------
-# RESPONSE GENERATION
-# --------------------------------------------------
-def generate_response(message):
-    best_practice = retrieve_info(message)
-    state = st.session_state.viva_state
+        state["question_count"] += 1
+        state["phase"] = "NEXT"
 
-    response = chain.invoke({
-            "message": message,
-            "best_practice": best_practice,
-            "current_category": get_current_category()
-        })["text"]
-    
-    return response
+    # NEXT
+    elif state["phase"] == "NEXT":
+        if state["question_count"] % 2 == 0:
+            state["category_index"] = min(
+                state["category_index"] + 1,
+                len(CATEGORIES) - 1
+            )
 
-# --------------------------------------------------
-# BATCH EVALUATION
-# --------------------------------------------------
-def batch_evaluate(evaluations):
-    results = []
-
-    for item in evaluations:
-        a = item["answer"]
-        q = item["question"]
-        
-
-        ev = evaluate_answer(q, a)
-
-        results.append({
-            **item,
-            "evaluation": ev
-        })
-
-    return results
+        state["phase"] = "ASK"
 
 # --------------------------------------------------
-# PDF GENERATION
+# PDF
 # --------------------------------------------------
 def generate_pdf(chat, evaluations):
-
-    evaluated = batch_evaluate(evaluations)
-
     styles = getSampleStyleSheet()
     report = []
 
     report.append(Paragraph("AI Viva Report", styles["Title"]))
     report.append(Spacer(1, 12))
 
-    # Transcript
-    report.append(Paragraph("Transcript", styles["Heading2"]))
-    report.append(Spacer(1, 10))
-
     for m in chat:
         role = "Student" if m["role"] == "user" else "Examiner"
         report.append(Paragraph(f"<b>{role}:</b> {m['content']}", styles["Normal"]))
         report.append(Spacer(1, 6))
 
-    # Evaluation
-    report.append(Spacer(1, 20))
-    report.append(Paragraph("Evaluation", styles["Heading2"]))
+    total, count = 0, 0
 
-    total = 0
-    count = 0
-
-    for e in evaluated:
-        ev = e["evaluation"]
+    for e in evaluations:
+        ev = evaluate_answer(e["question"], e["answer"])
 
         report.append(Paragraph(f"<b>Q:</b> {e['question']}", styles["Normal"]))
         report.append(Paragraph(f"<b>A:</b> {e['answer']}", styles["Normal"]))
-        report.append(Spacer(1, 5))
 
         if "overall_score" in ev:
-            score = ev["overall_score"]
-            total += score
+            total += ev["overall_score"]
             count += 1
-            report.append(Paragraph(f"Score: {score}", styles["Normal"]))
+            report.append(Paragraph(f"Score: {ev['overall_score']}", styles["Normal"]))
 
-        if "feedback" in ev:
-            report.append(Paragraph(f"Feedback: {ev['feedback']}", styles["Normal"]))
-
+        report.append(Paragraph(f"{ev.get('feedback','')}", styles["Normal"]))
         report.append(Spacer(1, 10))
 
-    if count > 0:
-        avg = total / count
-        report.append(Paragraph(f"<b>Final Average Score: {avg:.2f}</b>", styles["Heading2"]))
+    if count:
+        report.append(Paragraph(f"Final Avg: {total/count:.2f}", styles["Heading2"]))
 
-    pdf_file = "viva_report.pdf"
-    doc = SimpleDocTemplate(pdf_file, pagesize=A4)
-    doc.build(report)
-
-    return pdf_file
+    file = "viva_report.pdf"
+    SimpleDocTemplate(file, pagesize=A4).build(report)
+    return file
 
 # --------------------------------------------------
-# APP
+# MAIN
 # --------------------------------------------------
 def main():
     st.set_page_config(page_title="AIVivaXaminer", page_icon="🤖")
-
     st.title("AIVivaXaminer")
 
     init_state()
-    ensure_state()
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    if "viva_active" not in st.session_state:
-        st.session_state.viva_active = True
+    state = st.session_state.viva
 
-    if "examiner_logged_in" not in st.session_state:
-        st.session_state.examiner_logged_in = False
-
-    # ---------------- SIDEBAR ----------------
-    with st.sidebar:
-        st.header("🎛️ Examiner Panel")
-
-        # ---------------- LOGIN ----------------
-        if not st.session_state.examiner_logged_in:
-            st.subheader("🔐 Login")
-
-            username = st.text_input("Username", key="exam_user")
-            password = st.text_input("Password", type="password", key="exam_pass")
-
-            if st.button("Login"):
-                if username == EXAMINER_USERNAME and password == EXAMINER_PASSWORD:
-                    st.session_state.examiner_logged_in = True
-                    st.success("Logged in successfully")
-                    st.rerun()
-                else:
-                    st.error("Invalid credentials")
-
-            st.info("Login required for examiner controls.")
-
-        else:
-            st.success("Examiner Mode Active")
-
-            # ---------------- Category ----------------
-            st.subheader("📊 Current Category")
-            st.write(get_current_category())
-            st.divider()
-            
-            # ---------------- VIVA CONTROL ----------------
-            st.subheader("🎛️ Viva Control")
-
-            if st.session_state.viva_active:
-                if st.button("🛑 Stop Viva"):
-                    st.session_state.viva_active = False
-                    st.success("Viva stopped")
-                    st.rerun()
-            else:
-                st.info("Viva session ended")
-
-            st.divider()
-
-            # ---------------- EXPORT ----------------
-            st.subheader("📄 Export")
-
-            if st.session_state.messages and not st.session_state.viva_active:
-                if st.button("Generate PDF"):
-                    pdf_file = generate_pdf(
-                        st.session_state.messages,
-                        st.session_state.viva_state["evaluations"]
-                    )
-
-                    with open(pdf_file, "rb") as f:
-                        st.download_button(
-                            "⬇️ Download PDF",
-                            f,
-                            file_name="AIViva_Transcript.pdf",
-                            mime="application/pdf"
-                        )
-            else:
-                st.caption("Stop viva first to enable PDF")
-
-            st.divider()
-            # ---------------- SESSION ----------------
-            st.subheader("⚙️ Session")
-
-            if st.button("🔄 Reset Session"):
-                st.session_state.viva_state = {
-                    "current_category_index": 1,
-                    "questions_asked_total": 0,
-                    "questions_per_category": [0,0,0,0,0,0,0],
-                    "follow_up_allowed": False
-                }
-                st.session_state.messages = []
-                st.session_state.viva_active = True
-                st.success("Session reset")
-                st.rerun()
-
-            if st.button("🚪 Logout"):
-                st.session_state.examiner_logged_in = False
-                st.rerun()
-
-
-            
-
-    # ---------------- CHAT HISTORY ----------------
+    # show chat
     for m in st.session_state.messages:
         with st.chat_message(m["role"]):
             st.markdown(m["content"])
 
-    user_input = st.chat_input("Enter your research title ...") if st.session_state.viva_active else None
+    # show question
+    if state["phase"] == "WAIT" and state["current_question"]:
+        with st.chat_message("assistant"):
+            st.markdown(state["current_question"])
+
+    user_input = st.chat_input("Enter title or answer")
 
     if user_input:
-        st.chat_message("user").markdown(user_input)
         st.session_state.messages.append({"role": "user", "content": user_input})
 
-        with st.chat_message("assistant"):
-            placeholder = st.empty()
+        run_state_machine(user_input)
+        run_state_machine()  # advance system
 
-            response = generate_response(user_input)
-
-            text = ""
-            for w in response.split():
-                text += w + " "
-                time.sleep(0.01)
-                placeholder.markdown(text + "▌")
-
-            placeholder.markdown(text)
-
-        # --------------------------------------------------
-        # STORE Q/A FIRST (ALWAYS SAFE)
-        # --------------------------------------------------
-        qa_pair = {
-            "question": response,
-            "answer": user_input
-        }
-
-        st.session_state.messages.append({"role": "assistant", "content": response})
-
-        # --------------------------------------------------
-        # UPDATE STATE FIRST (BEFORE RERUN)
-        # --------------------------------------------------
-        update_state(user_input)
-        
-        # --------------------------------------------------
-        # SKIP FIRST EVALUATION ONLY
-        # --------------------------------------------------
-        if st.session_state.viva_state.get("skip_first", True):
-            st.session_state.viva_state["skip_first"] = False
-        else:
-            st.session_state.viva_state.setdefault("evaluations", []).append(qa_pair)
-        
-        
-        
-        # --------------------------------------------------
-        # NOW SAFE TO RERUN
-        # --------------------------------------------------
         st.rerun()
-
 
 if __name__ == "__main__":
     main()
