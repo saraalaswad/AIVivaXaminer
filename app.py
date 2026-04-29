@@ -129,7 +129,8 @@ def init_state():
     if "viva_state" not in st.session_state:
         st.session_state.viva_state = {
             "current_category_index": 1,
-            "evaluations": []
+            "evaluations": [],
+            "skip_first": True   # ✅ IMPORTANT FIX
         }
 
 # --------------------------------------------------
@@ -149,7 +150,7 @@ def get_current_category():
     return CATEGORIES[st.session_state.viva_state["current_category_index"] - 1]
 
 # --------------------------------------------------
-# BATCH EVALUATION (KEY UPGRADE)
+# BATCH EVALUATION
 # --------------------------------------------------
 def batch_evaluate(evaluations):
     results = []
@@ -180,9 +181,7 @@ def generate_pdf(chat, evaluations):
     report.append(Paragraph("AI Viva Report", styles["Title"]))
     report.append(Spacer(1, 12))
 
-    # -----------------------
     # Transcript
-    # -----------------------
     report.append(Paragraph("Transcript", styles["Heading2"]))
     report.append(Spacer(1, 10))
 
@@ -191,9 +190,7 @@ def generate_pdf(chat, evaluations):
         report.append(Paragraph(f"<b>{role}:</b> {m['content']}", styles["Normal"]))
         report.append(Spacer(1, 6))
 
-    # -----------------------
     # Evaluation
-    # -----------------------
     report.append(Spacer(1, 20))
     report.append(Paragraph("Evaluation", styles["Heading2"]))
 
@@ -205,6 +202,7 @@ def generate_pdf(chat, evaluations):
 
         report.append(Paragraph(f"<b>Q:</b> {e['question']}", styles["Normal"]))
         report.append(Paragraph(f"<b>A:</b> {e['answer']}", styles["Normal"]))
+        report.append(Spacer(1, 5))
 
         if "overall_score" in ev:
             score = ev["overall_score"]
@@ -217,9 +215,6 @@ def generate_pdf(chat, evaluations):
 
         report.append(Spacer(1, 10))
 
-    # -----------------------
-    # FINAL SCORE (PhD style summary)
-    # -----------------------
     if count > 0:
         avg = total / count
         report.append(Paragraph(f"<b>Final Average Score: {avg:.2f}</b>", styles["Heading2"]))
@@ -241,18 +236,12 @@ def main():
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # -----------------------
-    # CHAT DISPLAY
-    # -----------------------
     for m in st.session_state.messages:
         with st.chat_message(m["role"]):
             st.markdown(m["content"])
 
     user_input = st.chat_input("Enter your answer...")
 
-    # -----------------------
-    # VIVA FLOW (NO EVALUATION HERE)
-    # -----------------------
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
 
@@ -266,17 +255,19 @@ def main():
 
         st.session_state.messages.append({"role": "assistant", "content": response})
 
-        # ONLY STORE (NO EVALUATION)
-        st.session_state.viva_state["evaluations"].append({
-            "question": user_input,
-            "answer": response
-        })
+        # --------------------------------------------------
+        # FIX: SKIP FIRST INPUT COMPLETELY
+        # --------------------------------------------------
+        if st.session_state.viva_state.get("skip_first", True):
+            st.session_state.viva_state["skip_first"] = False
+        else:
+            st.session_state.viva_state["evaluations"].append({
+                "question": user_input,
+                "answer": response
+            })
 
         st.rerun()
 
-    # -----------------------
-    # PDF TRIGGERS EVALUATION
-    # -----------------------
     if st.button("Generate PDF"):
         file = generate_pdf(
             st.session_state.messages,
