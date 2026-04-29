@@ -465,7 +465,6 @@ def main():
         
         st.session_state.messages.append({"role": "assistant", "content": response})
         
-        
         # --------------------------------------------------
         # NOW SAFE TO RERUN
         # --------------------------------------------------
