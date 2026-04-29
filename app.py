@@ -198,7 +198,7 @@ def generate_viva_pdf(chat_history, filename="viva.pdf"):
 def main():
     st.set_page_config(page_title="AIVivaXaminer", page_icon="🤖")
 
-    st.title("AIVivaXaminer")
+    st.title("🤖AIVivaXaminer")
 
     init_state()
 
