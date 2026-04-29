@@ -443,23 +443,23 @@ def main():
 
         st.session_state.messages.append({"role": "assistant", "content": response})
 
-        # --------------------------------------------------
-        # FIX: SKIP FIRST INPUT COMPLETELY
-        # --------------------------------------------------
+        # STORE Q/A FIRST (always correct mapping)
+        qa_pair = {
+            "question": response,
+            "answer": user_input
+        }
+        
+        # SKIP ONLY FIRST ANSWER EVALUATION
         if st.session_state.viva_state.get("skip_first", True):
             st.session_state.viva_state["skip_first"] = False
         else:
-            st.session_state.viva_state.setdefault("evaluations", []).append({
-                "answer": user_input,
-                "question": response
-            })
-
-        st.rerun()
+            st.session_state.viva_state.setdefault("evaluations", []).append(qa_pair)
+                
 
         # 🔥 CRITICAL FIX: UPDATE STATE HERE
         update_state(user_input)
 
-
+        st.rerun()
 
 
 if __name__ == "__main__":
