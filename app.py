@@ -48,6 +48,7 @@ def retrieve_info(query, k=3):
 # LLM
 # --------------------------------------------------
 llm = ChatOpenAI(model="gpt-4-turbo", temperature=0.7)
+eval_llm = ChatOpenAI(model="gpt-4-turbo", temperature=0)
 
 # --------------------------------------------------
 # RUBRIC
