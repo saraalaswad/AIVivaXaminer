@@ -54,14 +54,14 @@ eval_llm = ChatOpenAI(model="gpt-4-turbo", temperature=0)
 # RUBRIC
 # --------------------------------------------------
 EVALUATION_FRAMEWORK = {
-    "Problem Definition": ["Coherence","Relevance","Completeness","Engagement","Accuracy","Creativity","Fluency","Clarity","Descriptiveness","Informativeness"],
-    "Literature Search": ["Coherence","Relevance","Completeness","Accuracy","Creativity","Clarity","Descriptiveness","Informativeness"],
-    "Solution Design": ["Coherence","Relevance","Completeness","Accuracy","Creativity","Fluency","Clarity","Descriptiveness","Informativeness"],
-    "Result & Analysis": ["Coherence","Relevance","Completeness","Accuracy","Creativity","Fluency","Clarity","Descriptiveness","Informativeness"],
-    "Implementation / Product": ["Seamless functionality","Real-world significance","User engagement","Functionality"],
-    "References & Citation": ["Organized structure","Complete citation","Accurate referencing","Clarity in citation format","Descriptive citations","Informative references"],
-    "Teamwork": ["Active participation","Clear roles assigned","Professional collaboration","Transparent roles","Keeps team informed"],
-    "Documentation and Format": ["Organized structure","Full coverage of content","Accurate documentation","Unique presentation style","Smooth report structure","Clear writing","Rich content","Informs the audience"],
+    "Problem Definition": ["logical structure of the problem","pertinence to objectives","thoroughness of definition","N/A","correct identification of issues","innovative problem framing","N/A","clear articulation of problem","detailed background","provides context"],
+    "Literature Search": ["logical flow of methods","clear connection to problem","comprehensive search","N/A","precision of sources","unique and novel sources","N/A","clear explanation of research", "detailed context and analysis", "explains literature thoroughly"],
+    "Solution Design": ["logical flow of methods","applicability of methods","comprehensive methodology","N/A","precision of methods","novel approaches","N/A","clear description of steps","detailed steps", "explains methods thoroughly"],
+    "Result & Analysis": ["logical interpretation of results","results aligned with objectives","depth of analysis","N/A","correct results and analysis","innovative insights","smooth presentation of analysis","clear explanation of results","detailed analysis", "insightful conclusions"],
+    "Implementation / Product": ["Seamless functionality","Real-world significance","User engagement","Functionality", "original solution", "N/A", "intuitive design", "visual and functional detail", "educates the user"],
+    "References & Citation": ["Organized structure", "N/A", "Complete citation", "N/A", "Accurate referencing", "N/A", "N/A", "Clarity in citation format","Descriptive citations","Informative references"],
+    "Teamwork": ["N/A", "N/A", "N/A", "Active participation","Clear roles assigned", "innovative team strategies", "Professional collaboration","Transparent roles", "explicit team documentation", "Keeps team informed"],
+    "Documentation and Format": ["Organized structure", "N/A", "Full coverage of content", "reader engagement", "Accurate documentation","Unique presentation style","Smooth report structure","Clear writing","Rich content","Informs the audience"],
     "Organization & Delivery": ["Logical and engaging delivery","Clear connection to objectives","Fully developed presentation","Audience interaction","Accurate communication","Creative visuals","Smooth delivery","Clear communication","Descriptive visuals","Clear and valuable content"]
 }
 
