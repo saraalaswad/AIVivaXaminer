@@ -162,7 +162,7 @@ Return ONLY valid JSON:
 }}
 
 RUBRIC:
-{json.dumps(EVALUATION_FRAMEWORK, indent=2)}
+{json.dumps(EVALUATION_FRAMEWORK, indent=4)}
 
 Question:
 {question}
