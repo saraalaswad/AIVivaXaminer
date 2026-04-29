@@ -297,10 +297,10 @@ def generate_pdf(chat, evaluations):
         report.append(Paragraph(f"<b>Final Average Score: {avg:.2f}</b>", styles["Heading2"]))
 
     file = "viva_report.pdf"
-    doc = SimpleDocTemplate(file, pagesize=A4)
+    doc = SimpleDocTemplate(pdf_file, pagesize=A4)
     doc.build(report)
 
-    return file
+    return pdf_file
 
 # --------------------------------------------------
 # APP
@@ -368,7 +368,7 @@ def main():
 
             if st.session_state.messages and not st.session_state.viva_active:
                 if st.button("Generate PDF"):
-                    file = generate_pdf(
+                    pdf_file = generate_pdf(
                         st.session_state.messages,
                         st.session_state.viva_state["evaluations"]
                     )
