@@ -91,7 +91,7 @@ def clean_json_output(text):
     return match.group(0) if match else text
 
 # --------------------------------------------------
-# EVALUATION
+# FINAL EVALUATION (USED ONLY IN PDF)
 # --------------------------------------------------
 def evaluate_answer(question, answer):
     prompt = f"""
@@ -149,9 +149,30 @@ def get_current_category():
     return CATEGORIES[st.session_state.viva_state["current_category_index"] - 1]
 
 # --------------------------------------------------
-# PDF GENERATION (FIXED - NO KEY ERROR)
+# BATCH EVALUATION (KEY UPGRADE)
+# --------------------------------------------------
+def batch_evaluate(evaluations):
+    results = []
+
+    for item in evaluations:
+        q = item["question"]
+        a = item["answer"]
+
+        ev = evaluate_answer(q, a)
+
+        results.append({
+            **item,
+            "evaluation": ev
+        })
+
+    return results
+
+# --------------------------------------------------
+# PDF GENERATION
 # --------------------------------------------------
 def generate_pdf(chat, evaluations):
+
+    evaluated = batch_evaluate(evaluations)
 
     styles = getSampleStyleSheet()
     report = []
@@ -160,7 +181,7 @@ def generate_pdf(chat, evaluations):
     report.append(Spacer(1, 12))
 
     # -----------------------
-    # TRANSCRIPT
+    # Transcript
     # -----------------------
     report.append(Paragraph("Transcript", styles["Heading2"]))
     report.append(Spacer(1, 10))
@@ -171,7 +192,7 @@ def generate_pdf(chat, evaluations):
         report.append(Spacer(1, 6))
 
     # -----------------------
-    # EVALUATION (SAFE FIX HERE)
+    # Evaluation
     # -----------------------
     report.append(Spacer(1, 20))
     report.append(Paragraph("Evaluation", styles["Heading2"]))
@@ -179,16 +200,11 @@ def generate_pdf(chat, evaluations):
     total = 0
     count = 0
 
-    for e in evaluations:
+    for e in evaluated:
+        ev = e["evaluation"]
 
-        question = e["question"]
-        answer = e["answer"]
-
-        # ✅ SAFE: evaluate here (no missing keys anymore)
-        ev = evaluate_answer(question, answer)
-
-        report.append(Paragraph(f"<b>Q:</b> {question}", styles["Normal"]))
-        report.append(Paragraph(f"<b>A:</b> {answer}", styles["Normal"]))
+        report.append(Paragraph(f"<b>Q:</b> {e['question']}", styles["Normal"]))
+        report.append(Paragraph(f"<b>A:</b> {e['answer']}", styles["Normal"]))
 
         if "overall_score" in ev:
             score = ev["overall_score"]
@@ -202,7 +218,7 @@ def generate_pdf(chat, evaluations):
         report.append(Spacer(1, 10))
 
     # -----------------------
-    # FINAL SCORE
+    # FINAL SCORE (PhD style summary)
     # -----------------------
     if count > 0:
         avg = total / count
@@ -218,7 +234,7 @@ def generate_pdf(chat, evaluations):
 # APP
 # --------------------------------------------------
 def main():
-    st.title("🎓 AI Viva Examiner (Stable Mode)")
+    st.title("🎓 AI Viva Examiner (Batch Evaluation Mode)")
 
     init_state()
 
@@ -235,7 +251,7 @@ def main():
     user_input = st.chat_input("Enter your answer...")
 
     # -----------------------
-    # VIVA FLOW
+    # VIVA FLOW (NO EVALUATION HERE)
     # -----------------------
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
@@ -250,16 +266,16 @@ def main():
 
         st.session_state.messages.append({"role": "assistant", "content": response})
 
-        # store ONLY QA pair (no evaluation here)
+        # ONLY STORE (NO EVALUATION)
         st.session_state.viva_state["evaluations"].append({
-            "question": response,
-            "answer": user_input
+            "question": user_input,
+            "answer": response
         })
 
         st.rerun()
 
     # -----------------------
-    # PDF GENERATION
+    # PDF TRIGGERS EVALUATION
     # -----------------------
     if st.button("Generate PDF"):
         file = generate_pdf(
