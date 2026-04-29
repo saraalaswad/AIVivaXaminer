@@ -125,7 +125,7 @@ Retrieved Knowledge:
 ----------------------------------------
 TASK
 ----------------------------------------
-Using {message} and {best_practice}, generate ONE viva question strictly for the current category.
+Generate ONE viva question strictly for the current category.
 """
 
 prompt = PromptTemplate(
@@ -162,7 +162,7 @@ Return ONLY valid JSON:
 }}
 
 RUBRIC:
-{json.dumps(EVALUATION_FRAMEWORK, indent=4)}
+{json.dumps(EVALUATION_FRAMEWORK, indent=2)}
 
 Question:
 {question}
@@ -249,7 +249,7 @@ def batch_evaluate(evaluations):
         ev = evaluate_answer(q, a)
 
         results.append({
-            **item,
+            *item,
             "evaluation": ev
         })
 
