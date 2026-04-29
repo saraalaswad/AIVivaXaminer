@@ -152,7 +152,7 @@ def clean_json_output(text):
 # --------------------------------------------------
 def evaluate_answer(question, answer):
     prompt = f"""
-You are a PhD viva examiner.
+You are an undergraduate viva examiner.
 
 Return ONLY valid JSON:
 
