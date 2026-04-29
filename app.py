@@ -449,12 +449,12 @@ def main():
             "answer": user_input
         }
 
+        st.session_state.messages.append({"role": "assistant", "content": response})
+
         # --------------------------------------------------
         # UPDATE STATE FIRST (BEFORE RERUN)
         # --------------------------------------------------
         update_state(user_input)
-
-        st.session_state.messages.append({"role": "assistant", "content": response})
         
         # --------------------------------------------------
         # SKIP FIRST EVALUATION ONLY
