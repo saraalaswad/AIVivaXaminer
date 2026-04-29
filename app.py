@@ -56,28 +56,28 @@ EVALUATION_FRAMEWORK = {
     "Literature Search": ["Coherence","Relevance","Completeness","Accuracy","Creativity","Clarity","Descriptiveness","Informativeness"],
     "Solution Design": ["Coherence","Relevance","Completeness","Accuracy","Creativity","Fluency","Clarity","Descriptiveness","Informativeness"],
     "Result & Analysis": ["Coherence","Relevance","Completeness","Accuracy","Creativity","Fluency","Clarity","Descriptiveness","Informativeness"],
-    "Implementation / Product": ["Seamless functionality","Real-world significance","User engagement","Functionality"],
-    "References & Citation": ["Organized structure","Complete citation","Accurate referencing","Clarity in citation format","Descriptive citations","Informative references"],
-    "Teamwork": ["Active participation","Clear roles","Professional collaboration","Transparency","Communication"],
-    "Documentation and Format": ["Structure","Coverage","Accuracy","Presentation","Clarity","Content richness"],
+    "Implementation / Product": ["Functionality","Real-world significance","User engagement","Seamless performance"],
+    "References & Citation": ["Structure","Completeness","Accuracy","Clarity","Descriptiveness","Informative"],
+    "Teamwork": ["Participation","Roles","Collaboration","Communication","Transparency"],
+    "Documentation and Format": ["Structure","Coverage","Accuracy","Presentation","Clarity","Richness"],
     "Organization & Delivery": ["Delivery","Clarity","Engagement","Communication","Creativity","Visuals"]
 }
 
 # --------------------------------------------------
-# PROMPT (VIVA QUESTION)
+# PROMPT
 # --------------------------------------------------
 PROMPT_TEMPLATE = """
-You are an experienced academic professor conducting a viva.
+You are an academic viva examiner.
 
-CURRENT CATEGORY: {current_category}
+Category: {current_category}
 
 Student Answer:
 {message}
 
-Retrieved Knowledge:
+Context:
 {best_practice}
 
-Ask ONE clear follow-up question only.
+Ask ONE short follow-up question.
 """
 
 prompt = PromptTemplate(
@@ -88,7 +88,7 @@ prompt = PromptTemplate(
 chain = LLMChain(llm=llm, prompt=prompt)
 
 # --------------------------------------------------
-# JSON CLEANING
+# JSON CLEANER
 # --------------------------------------------------
 def clean_json_output(text):
     text = re.sub(r"```json|```", "", text)
@@ -100,7 +100,7 @@ def clean_json_output(text):
 # --------------------------------------------------
 def evaluate_answer(question, answer):
     prompt = f"""
-Return ONLY valid JSON.
+Return ONLY valid JSON:
 
 {{
   "scores": {{}},
@@ -108,7 +108,7 @@ Return ONLY valid JSON.
   "feedback": ""
 }}
 
-RUBRIC:
+Rubric:
 {json.dumps(EVALUATION_FRAMEWORK, indent=2)}
 
 Question:
@@ -127,15 +127,20 @@ Answer:
         return {"error": "Parsing failed", "raw": response}
 
 # --------------------------------------------------
-# STATE
+# STATE (FIXED)
 # --------------------------------------------------
 def init_state():
     if "viva_state" not in st.session_state:
-        st.session_state.viva_state = {
-            "current_category_index": 1,
-            "evaluations": [],
-            "skip_first_evaluation": True
-        }
+        st.session_state.viva_state = {}
+
+    if "current_category_index" not in st.session_state.viva_state:
+        st.session_state.viva_state["current_category_index"] = 1
+
+    if "evaluations" not in st.session_state.viva_state:
+        st.session_state.viva_state["evaluations"] = []
+
+    if "skip_first_evaluation" not in st.session_state.viva_state:
+        st.session_state.viva_state["skip_first_evaluation"] = True
 
 # --------------------------------------------------
 # CATEGORY
@@ -181,9 +186,9 @@ def generate_pdf(chat, evaluations):
         ev = e.get("evaluation", {}) or {}
 
         if ev.get("skipped"):
-            report.append(Paragraph("Evaluation: Skipped (first response)", styles["Normal"]))
+            report.append(Paragraph("Evaluation: Skipped (first input)", styles["Normal"]))
         elif "error" in ev:
-            report.append(Paragraph("Evaluation: Failed to parse", styles["Normal"]))
+            report.append(Paragraph("Evaluation: Failed parsing", styles["Normal"]))
         else:
             if "overall_score" in ev:
                 report.append(Paragraph(f"Score: {ev['overall_score']}", styles["Normal"]))
@@ -209,6 +214,7 @@ def main():
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
+    # show chat history
     for m in st.session_state.messages:
         with st.chat_message(m["role"]):
             st.markdown(m["content"])
@@ -231,9 +237,9 @@ def main():
         st.session_state.messages.append({"role": "assistant", "content": response_text})
 
         # --------------------------------------------------
-        # SKIP FIRST EVALUATION FIX
+        # SAFE FIRST EVALUATION SKIP
         # --------------------------------------------------
-        if st.session_state.viva_state["skip_first_evaluation"]:
+        if st.session_state.viva_state.get("skip_first_evaluation", True):
             evaluation = {"skipped": True}
             st.session_state.viva_state["skip_first_evaluation"] = False
         else:
